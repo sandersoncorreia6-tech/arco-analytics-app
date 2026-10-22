@@ -31,6 +31,8 @@ class ArcoAnalyst {
     'Compare os últimos jogos',
   ];
 
+  static String _erros(int n) => n == 1 ? '1 erro' : '$n erros';
+
   TeamSeason? get team => myTeams.isEmpty ? null : myTeams.first;
 
   AnalystReply answer(String question) {
@@ -99,13 +101,13 @@ class ArcoAnalyst {
       );
     }
     final zones = s.zones(shots).where((z) => z.$3 > 0).toList()..sort((a, b) => (b.$3 - b.$2).compareTo(a.$3 - a.$2));
-    final lines = zones.map((z) => '• ${z.$1.label}: ${z.$2}/${z.$3} (${p0(z.$2 * 100 / z.$3)}) — ${z.$3 - z.$2} erros').join('\n');
+    final lines = zones.map((z) => '• ${z.$1.label}: ${z.$2}/${z.$3} (${p0(z.$2 * 100 / z.$3)}) — ${_erros(z.$3 - z.$2)}').join('\n');
     final sides = s.sides(threesOnly: threes, shots: shots).where((x) => x.$3 > 0).map((x) => '${x.$1} ${x.$2}/${x.$3} (${p0(x.$2 * 100 / x.$3)})').join(' • ');
     final worst = zones.first;
     return AnalystReply(
       '${threes ? 'Bolas de 3' : 'Arremessos'} de ${s.team.name} (${shots.length} com posição registrada):\n$lines\n\n'
       'Por lado da quadra: $sides.\n\n'
-      'Onde mais erra: ${worst.$1.label.toLowerCase()} (${worst.$3 - worst.$2} erros). '
+      'Onde mais erra: ${worst.$1.label.toLowerCase()} (${_erros(worst.$3 - worst.$2)}). '
       '${worst.$2 / worst.$3 < .35 ? 'Vale reduzir o volume nessa zona ou treiná-la especificamente.' : 'O volume é alto, mas o aproveitamento está aceitável.'}',
       suggestions: const ['Quem arremessa melhor?', 'E se tivéssemos acertado os lances livres?'],
     );

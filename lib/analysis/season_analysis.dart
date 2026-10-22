@@ -144,7 +144,7 @@ class SeasonAnalysis {
     if (zs.isNotEmpty) {
       final byMisses = [...zs]..sort((a, b) => (b.$3 - b.$2).compareTo(a.$3 - a.$2));
       final m = byMisses.first;
-      out.add(Finding('Onde o time mais erra: ${m.$1.label}', '${m.$3 - m.$2} erros em ${m.$3} arremessos (${p0(m.$2 * 100 / m.$3)}).',
+      out.add(Finding('Onde o time mais erra: ${m.$1.label}', '${m.$3 - m.$2 == 1 ? '1 erro' : '${m.$3 - m.$2} erros'} em ${m.$3} arremessos (${p0(m.$2 * 100 / m.$3)}).',
           level: FindingLevel.warning));
     }
     final threeSides = sides(threesOnly: true).where((s) => s.$1 != 'central' && s.$3 >= 6).toList();
