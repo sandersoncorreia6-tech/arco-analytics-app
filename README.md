@@ -1,33 +1,95 @@
-# ARCO Analytics
+# ARCO Analytics — v0.5 Coach Hub
 
-Repositório oficial de build do ARCO Analytics.
+Plataforma Flutter/Dart de inteligência para treinadores de basquete.
 
-## Fonte oficial atual
+**Dado → Contexto → Insight → Decisão**
 
-A versão usada pelos builds é **ARCO Analytics v0.4 Multiplatform**.
+## Novidades v0.5
 
-O pacote original é preservado em partes de texto em `.source/v0_4/`. Antes de qualquer compilação, o GitHub Actions reconstrói o ZIP e valida o SHA-256:
+- Login/área do treinador
+- Conta demo preparada para **Adriano Mião**
+- Organização demo: **Tupã / Monstrinho**
+- Home personalizada com insights da equipe
+- Central de competições **FPB + LBC**
+- Filtro por liga, categoria e equipe
+- Sincronização/caches independentes para FPB e LBC
+- Página/ficha de jogo com acesso à fonte oficial
+- Associação de vídeo do YouTube a qualquer partida
+- Vídeos salvos localmente para teste
+- Continua compatível com Android APK + Web/PWA + desktop web
 
-`247421b7dfbf944fcd7cbd4d7c5a775d7afe01443b322a08d578d0934ee7fd6d`
+## Login demo
 
-Isso impede que um ZIP antigo seja compilado por engano.
+- E-mail: `adriano.miao@arco.app`
+- Senha: `ARCO-DEMO`
+- Também existe botão de acesso demo em um toque.
 
-## Builds
+> Não use essas credenciais como segurança real. Elas existem apenas para demonstrar o fluxo. Produção deve usar Firebase/Supabase/backend próprio.
 
-O workflow **Build ARCO Multiplatform** gera, a partir da mesma fonte:
+## Competições
 
-- Android APK — instalação direta.
-- Android AAB — pacote para publicação na Google Play; para produção é necessário configurar a assinatura da loja.
-- Web/PWA — funciona em navegadores e pode ser instalado no iPhone/iPad pelo Safari e em PCs compatíveis.
-- Windows — build nativo para PC.
-- iOS unsigned — build técnico sem assinatura. Para TestFlight/App Store ou instalação nativa em iPhone é necessário configurar certificados e conta Apple Developer.
+### FPB
+O serviço FPB continua desacoplado e consulta a página pública através de `lib/services/fpb_live_service.dart`.
 
-O workflow **Build ARCO APK (manual)** continua disponível apenas como atalho manual para gerar o APK Android.
+### LBC
+A v0.5 adiciona `lib/services/lbc_live_service.dart` apontando para `https://www.lbc.org.br/`. Na Web, o acesso pode passar pelo proxy `/api/lbc-online` para evitar CORS.
 
-## Arquivos antigos
+Como sites externos podem mudar estrutura, os conectores são experimentais. Para operação comercial, priorizar feed/API/licenciamento oficial quando disponível.
 
-Os ZIPs `arco_analytics_build_ready.zip` e `arco_analytics_v0_5_coach_hub.zip` permanecem no histórico do repositório, mas **não são usados pelos workflows oficiais atuais**.
+## Vídeos de jogos
 
-## Como gerar
+Na tela **Competições**, cada jogo tem botão de vídeo. O treinador pode colar um link do YouTube e depois abrir o vídeo. O vínculo é salvo com SharedPreferences nesta versão.
 
-Abra **Actions** no GitHub e execute **Build ARCO Multiplatform**, ou faça uma alteração na fonte oficial em `.source/v0_4/`.
+## Analytics já existentes
+
+- eFG%
+- TS%
+- Offensive Rating
+- Defensive Rating
+- Net Rating
+- TOV%
+- ORB%
+- FT Rate
+- On/Off
+- ARCO Impact Score experimental
+- confiança de amostra
+- Four Factors
+- Lineup Analytics
+- motor de insights
+- scout ao vivo
+
+## APK
+
+Com Flutter instalado:
+
+```bash
+flutter create . --platforms=android,web
+flutter pub get
+flutter build apk --release
+```
+
+APK em:
+`build/app/outputs/flutter-apk/app-release.apk`
+
+## Web/PWA
+
+```bash
+flutter create . --platforms=android,web
+flutter pub get
+flutter build web --release
+```
+
+Arquivos em `build/web/`.
+
+## Próximas evoluções
+
+1. Autenticação real e multiusuário
+2. Banco cloud por clube/equipe
+3. Permissões: técnico, auxiliar, analista e atleta
+4. Calendário completo por temporada e categoria
+5. Persistência cloud de vídeos, jogos e insights
+6. Integração oficial com dados FPB/LBC quando disponível
+7. Scout automático do próximo adversário
+8. ARCO Assistant consultando dados do clube
+
+Mais detalhes em `docs/COACH_LOGIN_AND_LEAGUES.md`.
