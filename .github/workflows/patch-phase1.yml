@@ -1,0 +1,72 @@
+name: ARCO - Patch fase 1
+
+on:
+  push:
+    branches: [ organize-v0.5 ]
+    paths:
+      - ".github/workflows/patch-phase1.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: organize-v0.5
+          fetch-depth: 0
+
+      - name: Conectar calendário unificado ao AppState
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/state/app_state.dart')
+          text = path.read_text()
+
+          def replace_once(old, new, label):
+              global text
+              if old not in text:
+                  raise SystemExit(f'Padrão não encontrado: {label}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              "import '../models/coach_profile.dart';",
+              "import '../models/coach_profile.dart';\nimport '../models/coach_game_record.dart';\nimport '../models/team_context.dart';",
+              'imports de modelos',
+          )
+          replace_once(
+              "import '../services/lbc_live_service.dart';",
+              "import '../services/lbc_live_service.dart';\nimport '../services/coach_schedule_service.dart';",
+              'import do schedule service',
+          )
+          replace_once(
+              "  final FpbLiveService _fpbService = FpbLiveService();\n  final LbcLiveService _lbcService = LbcLiveService();",
+              "  final FpbLiveService _fpbService = FpbLiveService();\n  final LbcLiveService _lbcService = LbcLiveService();\n  final CoachScheduleService _coachScheduleService = const CoachScheduleService();\n  final TeamContext teamContext = TeamContext.tupaMonstrinho2026;",
+              'serviços e team context',
+          )
+          replace_once(
+              "  final List<Player> players = [...MockRepository.players];\n  final List<Game> games = [...MockRepository.games];\n  LiveGameSession? activeGame;",
+              "  final List<Player> players = [...MockRepository.players];\n  final List<Game> games = [...MockRepository.games];\n  LiveGameSession? activeGame;\n\n  List<CoachGameRecord> get coachSeasonGames => _coachScheduleService.build(\n        team: teamContext,\n        fpbGames: fpbGames,\n        lbcGames: lbcGames,\n        analyzedGames: games,\n      );\n\n  Game? analyzedGameById(String? gameId) {\n    if (gameId == null || gameId.isEmpty) return null;\n    for (final game in games) {\n      if (game.id == gameId) return game;\n    }\n    return null;\n  }",
+              'getter de histórico',
+          )
+          replace_once(
+              "    final game = Game(\n      opponent: live.opponent,",
+              "    final game = Game(\n      id: 'game_${live.startedAt.microsecondsSinceEpoch}',\n      teamId: teamContext.teamId,\n      seasonId: teamContext.seasonId,\n      competition: 'ARCO',\n      source: 'arco',\n      opponent: live.opponent,",
+              'metadados do jogo finalizado',
+          )
+
+          path.write_text(text)
+          PY
+
+      - name: Commit
+        run: |
+          git config user.name "ARCO Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/state/app_state.dart
+          git commit -m "Conecta histórico completo ao estado do treinador"
+          git push origin HEAD:organize-v0.5
