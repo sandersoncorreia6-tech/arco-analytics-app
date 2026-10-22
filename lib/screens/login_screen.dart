@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../state/app_state.dart';
+import 'cloud_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,6 +19,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+    // Nuvem configurada: login real. Sem ela: modo local de demonstração.
+    if (state.cloud.enabled) return const CloudLoginScreen();
     return Scaffold(
       body: Center(
         child: ConstrainedBox(

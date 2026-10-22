@@ -15,10 +15,7 @@ class _MyTeamScreenState extends State<MyTeamScreen> {
   late String category;
   late String league;
 
-  static const categories = [
-    'SUB 12 M', 'SUB 13 M', 'SUB 14 M', 'SUB 15 M', 'SUB 16 M', 'SUB 17 M', 'SUB 18 M', 'SUB 19 M', 'ADULTO M',
-    'SUB 12 F', 'SUB 13 F', 'SUB 14 F', 'SUB 15 F', 'SUB 16 F', 'SUB 17 F', 'SUB 18 F', 'SUB 19 F', 'ADULTO F',
-  ];
+  static const categories = MyTeamScreenCategories.all;
 
   @override
   void didChangeDependencies() {
@@ -109,4 +106,12 @@ class _MyTeamScreenState extends State<MyTeamScreen> {
       ]),
     );
   }
+}
+
+/// Categorias disponíveis no cadastro de equipes.
+class MyTeamScreenCategories {
+  static const all = [
+    'SUB 12 M', 'SUB 13 M', 'SUB 14 M', 'SUB 15 M', 'SUB 16 M', 'SUB 17 M', 'SUB 18 M', 'SUB 19 M', 'ADULTO M',
+    'SUB 12 F', 'SUB 13 F', 'SUB 14 F', 'SUB 15 F', 'SUB 16 F', 'SUB 17 F', 'SUB 18 F', 'SUB 19 F', 'ADULTO F',
+  ];
 }

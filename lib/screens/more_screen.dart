@@ -30,6 +30,27 @@ class MoreScreen extends StatelessWidget {
         )),
         const SizedBox(height: 10),
         Card(child: Column(children: [
+          ListTile(
+            leading: Icon(state.cloud.ready ? Icons.cloud_done_outlined : Icons.cloud_off_outlined),
+            title: const Text('Nuvem e backup'),
+            subtitle: Text(!state.cloud.enabled
+                ? 'Modo local: dados só neste aparelho (configure o Supabase para sincronizar)'
+                : state.cloud.ready
+                    ? '${state.cloud.club!.clubName} • ${state.cloud.outbox.isEmpty ? 'tudo sincronizado' : '${state.cloud.outbox.length} pendente(s) — envio automático'}'
+                        '${state.cloud.lastError == null ? '' : '\n${state.cloud.lastError}'}'
+                    : 'Entre na sua conta para sincronizar'),
+            isThreeLine: state.cloud.lastError != null,
+            trailing: state.cloud.ready ? const Icon(Icons.sync) : null,
+            onTap: !state.cloud.ready
+                ? null
+                : () async {
+                    final sent = await state.syncCloudNow();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.cloud.lastError ?? 'Sincronizado ($sent envio(s)).')));
+                    }
+                  },
+          ),
+          const Divider(height: 1),
           ListTile(leading: const Icon(Icons.badge_outlined), title: const Text('Minha equipe'), subtitle: Text('${state.coach.teamLabel} • ${state.coach.category} • temporada ${state.coach.season.isEmpty ? 'todas' : state.coach.season}'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyTeamScreen()))),
           const Divider(height: 1),
           ListTile(leading: const Icon(Icons.query_stats_outlined), title: const Text('Analytics'), subtitle: const Text('Mapa de arremessos, formações e four factors'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Analytics')), body: const AnalyticsScreen())))),

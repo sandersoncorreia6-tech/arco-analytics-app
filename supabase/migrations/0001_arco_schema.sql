@@ -202,6 +202,8 @@ create table if not exists games (
   external_id text,                          -- id da partida na estatística online
   box_score jsonb,                           -- GameBoxScore completo (inclui arremessos)
   started_at timestamptz,                    -- início do scout (sincronia com vídeo)
+  video_url text,                            -- "Assistir ao jogo" (ligado ao gameId)
+  video_offset_seconds integer,              -- segundo do vídeo em que o scout começou
   created_by uuid references auth.users default auth.uid(),
   updated_at timestamptz not null default now(),
   unique (club_id, source, external_id)

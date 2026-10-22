@@ -11,6 +11,10 @@ import '../models/play_event.dart';
 import '../models/player.dart';
 import '../models/box_score.dart';
 import '../analysis/scout_adapter.dart';
+import '../data/cloud/cloud_api.dart';
+import '../data/cloud/cloud_config.dart';
+import '../data/cloud/cloud_mapper.dart';
+import '../data/cloud/cloud_sync.dart';
 import '../data/repositories/game_repository.dart';
 import '../services/fiba_livestats.dart';
 import '../services/league_sync_service.dart';
@@ -28,6 +32,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final LeagueFeed fpb = LeagueFeed(LeagueSource.fpb);
   final LeagueFeed lbc = LeagueFeed(LeagueSource.lbc);
   List<LeagueFeed> get feeds => [fpb, lbc];
+
+  /// Nuvem (Supabase): login real, clube e sincronização offline-first.
+  final CloudSync cloud = CloudSync(CloudConfig.fromEnvironment);
 
   Timer? _ticker;
   bool _foreground = true;
@@ -90,6 +97,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         _restoreFeed(prefs, feed);
       }
       _restoreStats(prefs);
+      cloud.restore(prefs);
+      // Com a nuvem configurada, a sessão real substitui o login de demonstração.
+      if (cloud.enabled) loggedIn = cloud.signedIn;
     } catch (_) {
       // Armazenamento indisponível (ex.: navegador em modo privado): segue sem cache.
     } finally {
@@ -103,6 +113,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   void _tick() {
     if (!_foreground) return;
+    if (cloud.ready && cloud.outbox.isNotEmpty && !cloud.flushing) {
+      cloud.flush().whenComplete(notifyListeners);
+    }
     final now = DateTime.now();
     for (final feed in feeds) {
       if (feed.isDue(now)) syncLeague(feed, silent: true);
@@ -139,6 +152,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       );
       feed.apply(result);
       await _saveFeed(feed);
+      _cloudEnqueueLeagueGames();
       if (_registerMatches(result.matchIds, feed.league)) unawaited(syncStats(silent: true));
     } catch (e) {
       feed.error = SourceFetcher.describe(e);
@@ -439,7 +453,154 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  // ---------------------------------------------------------------- Nuvem
+
+  /// Login real (e-mail e senha). Retorna a mensagem de erro, ou `null`.
+  Future<String?> cloudSignIn(String email, String password) async {
+    try {
+      await cloud.signIn(email, password);
+      loggedIn = true;
+      if (cloud.club != null) await _applyCloudClub();
+      await pullFromCloud();
+      return null;
+    } on CloudException catch (e) {
+      return e.message;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  /// Cria a conta. `null` = ok (logado); texto = erro ou instrução (confirmar e-mail).
+  Future<String?> cloudSignUp(String name, String email, String password) async {
+    try {
+      final logged = await cloud.signUp(email, password, name);
+      if (!logged) return 'Conta criada! Abra o e-mail de confirmação e depois entre com sua senha.';
+      loggedIn = true;
+      await updateCoach(coach.copyWith(name: name.trim()));
+      return null;
+    } on CloudException catch (e) {
+      return e.message;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<String?> cloudRecover(String email) async {
+    try {
+      await cloud.recover(email);
+      return null;
+    } on CloudException catch (e) {
+      return e.message;
+    }
+  }
+
+  /// Primeiro acesso: clube → equipe/categoria → temporada.
+  Future<String?> cloudCreateClub({required String club, required String city, required String team, required String category, required String season, required List<String> keywords}) async {
+    try {
+      await cloud.createClub(clubName: club, city: city, teamName: team, category: category, season: season);
+      await updateCoach(coach.copyWith(club: club, city: city, team: team, category: category, season: season, teamKeywords: keywords));
+      _cloudEnqueueTeam();
+      syncAllLeagues();
+      return null;
+    } on CloudException catch (e) {
+      return e.message;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> _applyCloudClub() async {
+    final c = cloud.club!;
+    final name = cloud.session?.name ?? '';
+    await updateCoach(coach.copyWith(
+      name: name.isEmpty ? null : name,
+      club: c.clubName,
+      city: c.city,
+      team: c.teamName.isEmpty ? null : c.teamName,
+      category: c.category.isEmpty ? null : c.category,
+    ));
+  }
+
+  /// Traz da nuvem o que foi feito em outro aparelho: elenco, jogos do scout,
+  /// scout em andamento e vídeos.
+  Future<void> pullFromCloud() async {
+    if (!cloud.ready) return;
+    try {
+      final athletes = await cloud.pull('athletes', {'select': 'id,name,number,position', 'active': 'eq.true', 'order': 'number.asc'});
+      if (athletes.isNotEmpty && (demoRoster || players.isEmpty)) {
+        players
+          ..clear()
+          ..addAll(athletes.map(CloudMapper.playerFromAthlete));
+      }
+      final rows = await cloud.pull('games', {'select': 'external_id,source,status,box_score,video_url,video_offset_seconds'});
+      for (final r in rows) {
+        final id = (r['external_id'] ?? '').toString();
+        final video = r['video_url'] as String?;
+        if (video != null && video.isNotEmpty) videoLinks.putIfAbsent(id, () => video);
+        final offset = (r['video_offset_seconds'] as num?)?.toInt();
+        if (offset != null) videoOffsets.putIfAbsent(id, () => offset);
+        final box = (r['box_score'] as Map?)?.cast<String, dynamic>();
+        if (r['source'] != 'scout' || box == null) continue;
+        if (box['arcoGame'] is Map && !games.any((g) => scoutVideoKey(g) == id)) {
+          games.add(Game.fromJson((box['arcoGame'] as Map).cast<String, dynamic>()));
+        } else if (box['arcoLive'] is Map && r['status'] == 'live' && activeGame == null && !games.any((g) => scoutVideoKey(g) == id)) {
+          activeGame = LiveGameSession.fromJson((box['arcoLive'] as Map).cast<String, dynamic>());
+        }
+      }
+      games.sort((a, b) => b.date.compareTo(a.date));
+      _seasons = null;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_playersKey, jsonEncode([for (final p in players) p.toJson()]));
+      await prefs.setString(_gamesKey, jsonEncode([for (final g in games) g.toJson()]));
+      await prefs.setString('game_video_links_v1', jsonEncode(videoLinks));
+      await prefs.setString('game_video_offsets_v1', jsonEncode(videoOffsets));
+      await _saveActiveGame(prefs);
+    } on CloudException catch (e) {
+      cloud.lastError = e.message;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<int> syncCloudNow() async {
+    _cloudEnqueueTeam();
+    _cloudEnqueueLeagueGames(force: true);
+    final sent = await cloud.flush();
+    await pullFromCloud();
+    return sent;
+  }
+
+  String get _cloudTeamId => cloud.club?.teamId ?? '';
+
+  void _cloudEnqueueTeam() {
+    if (!cloud.signedIn || cloud.club == null) return;
+    if (!demoRoster) {
+      for (final p in players) {
+        cloud.enqueue('athlete:${p.id}', 'athletes', 'id', CloudMapper.athlete(p, cloud.club!.clubId, _cloudTeamId));
+      }
+    }
+    for (final g in games.where((g) => g.events.isNotEmpty)) {
+      final key = scoutVideoKey(g);
+      cloud.enqueue('game:scout:$key', 'games', 'club_id,source,external_id',
+          CloudMapper.scoutGame(g, key, coach, _cloudTeamId, videoUrl: videoLinks[key], videoOffset: videoOffsets[key]));
+    }
+  }
+
+  final Map<String, int> _pushedLeague = {};
+
+  void _cloudEnqueueLeagueGames({bool force = false}) {
+    if (!cloud.signedIn || cloud.club == null) return;
+    for (final cg in coachGames.where((c) => c.game.league != 'SCOUT')) {
+      final row = CloudMapper.leagueGame(cg.game, coach, _cloudTeamId, videoUrl: videoLinks[cg.game.id]);
+      final hash = jsonEncode(row).hashCode;
+      if (!force && _pushedLeague[cg.game.id] == hash) continue;
+      _pushedLeague[cg.game.id] = hash;
+      cloud.enqueue('game:${cg.game.league}:${cg.game.id}', 'games', 'club_id,source,external_id', row);
+    }
+  }
+
   Future<void> logout() async {
+    if (cloud.signedIn) await cloud.signOut();
     loggedIn = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('coach_logged_in_v1', false);
@@ -502,6 +663,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('game_video_links_v1', jsonEncode(videoLinks));
+    if (gameId.startsWith('scout_')) {
+      _cloudEnqueueTeam();
+    } else {
+      _cloudEnqueueLeagueGames();
+    }
     notifyListeners();
   }
 
@@ -538,6 +704,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await prefs.setString(_playersKey, jsonEncode([for (final p in players) p.toJson()]));
     await prefs.setString(_gamesKey, jsonEncode([for (final g in games) g.toJson()]));
     await _saveActiveGame(prefs);
+    _cloudEnqueueTeam();
   }
 
   Future<void> _saveActiveGame([SharedPreferences? prefs]) async {
@@ -554,6 +721,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void _liveChanged() {
     notifyListeners();
     _saveActiveGame();
+    final live = activeGame;
+    if (live != null && cloud.signedIn && cloud.club != null) {
+      final key = 'scout_${live.startedAt.millisecondsSinceEpoch}';
+      cloud.enqueue('game:scout:$key', 'games', 'club_id,source,external_id', CloudMapper.liveScout(live, key, coach, _cloudTeamId));
+    }
   }
 
   void addPlayer({required String name, required String position, required int number}) {
