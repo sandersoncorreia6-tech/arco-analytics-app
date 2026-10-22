@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/mock_repository.dart';
 import '../models/game.dart';
 import '../models/coach_profile.dart';
+import '../models/coach_game_record.dart';
+import '../models/team_context.dart';
 import '../models/lbc_game.dart';
 import '../models/fpb_game.dart';
 import '../models/live_game_session.dart';
@@ -12,6 +14,7 @@ import '../models/play_event.dart';
 import '../models/player.dart';
 import '../services/fpb_live_service.dart';
 import '../services/lbc_live_service.dart';
+import '../services/coach_schedule_service.dart';
 
 class AppState extends ChangeNotifier {
   AppState() {
@@ -27,6 +30,8 @@ class AppState extends ChangeNotifier {
 
   final FpbLiveService _fpbService = FpbLiveService();
   final LbcLiveService _lbcService = LbcLiveService();
+  final CoachScheduleService _coachScheduleService = const CoachScheduleService();
+  final TeamContext teamContext = TeamContext.tupaMonstrinho2026;
   Timer? _fpbTimer;
   Timer? _lbcTimer;
 
@@ -46,6 +51,21 @@ class AppState extends ChangeNotifier {
   final List<Player> players = [...MockRepository.players];
   final List<Game> games = [...MockRepository.games];
   LiveGameSession? activeGame;
+
+  List<CoachGameRecord> get coachSeasonGames => _coachScheduleService.build(
+        team: teamContext,
+        fpbGames: fpbGames,
+        lbcGames: lbcGames,
+        analyzedGames: games,
+      );
+
+  Game? analyzedGameById(String? gameId) {
+    if (gameId == null || gameId.isEmpty) return null;
+    for (final game in games) {
+      if (game.id == gameId) return game;
+    }
+    return null;
+  }
 
 
 
@@ -456,6 +476,11 @@ class AppState extends ChangeNotifier {
         ),
     };
     final game = Game(
+      id: 'game_${live.startedAt.microsecondsSinceEpoch}',
+      teamId: teamContext.teamId,
+      seasonId: teamContext.seasonId,
+      competition: 'ARCO',
+      source: 'arco',
       opponent: live.opponent,
       date: live.startedAt,
       ourScore: live.ourScore,
