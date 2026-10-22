@@ -164,4 +164,28 @@ Sesi 30 x 28 Pinheiros ao vivo
     expect(a, b);
     expect(a.startsWith('fpb_'), isTrue);
   });
+
+  test('notícia de programação/resultados da FPB (data no cabeçalho)', () {
+    final p = ScheduleParser(reference: DateTime(2026, 4, 20));
+    const html = '''
+      <article><h2>Resultados disponíveis: confira os jogos da base</h2>
+      <p><strong>Sábado – 18/04</strong></p>
+      <p>S14F ATB – ASSOCIAÇÃO TUPÃ BASQUETE 91 x 23 APAGEBASK / GUARULHOS<br>
+      S13M Double Votorantim Basket 40 x 64 Luso/Bauru</p>
+      <p><strong>Domingo – 19/04</strong></p>
+      <p>15:00 – S16M – Tupã x Sorocaba</p></article>''';
+    final games = p.parseArticleHtml(html);
+    expect(games, hasLength(3));
+    final tupa = games.firstWhere((g) => g.awayTeam == 'APAGEBASK / GUARULHOS');
+    expect(tupa.homeTeam, 'ATB – ASSOCIAÇÃO TUPÃ BASQUETE');
+    expect(tupa.homeScore, 91);
+    expect(tupa.awayScore, 23);
+    expect(tupa.competition, 'SUB 14 F');
+    expect(tupa.scheduledAt, DateTime(2026, 4, 18));
+    final next = games.firstWhere((g) => g.awayTeam == 'Sorocaba');
+    expect(next.homeTeam, 'Tupã');
+    expect(next.competition, 'SUB 16 M');
+    expect(next.scheduledAt, DateTime(2026, 4, 19, 15));
+    expect(next.status, 'AGENDADO');
+  });
 }

@@ -18,7 +18,7 @@ class SectionCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
-                if (trailing != null) trailing!,
+                if (trailing != null) Flexible(child: trailing!),
               ],
             ),
             const SizedBox(height: 14),

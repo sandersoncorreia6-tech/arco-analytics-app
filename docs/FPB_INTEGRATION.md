@@ -29,6 +29,23 @@ LeagueSource (FPB, LBC)  →  LeagueSyncService  →  ScheduleParser  →  Leagu
 - Pausa com o app em segundo plano e atualiza ao voltar.
 - Falha de rede ou página vazia **não** apaga os jogos salvos.
 
+## Estatística completa (FIBA LiveStats)
+
+- `lib/services/fiba_livestats.dart` — encontra ids de partidas em links/iframes/scripts
+  (`fibalivestats…/u/<ORG>/<id>`, `geniussports…/match/<id>`, `…/data/<id>/data.json`) e
+  converte o `data.json` público da partida em `GameBoxScore` (equipes, jogadores,
+  arremessos com coordenadas normalizadas para meia quadra e lance a lance).
+- `lib/services/stats_aggregator.dart` — soma a temporada por equipe e jogador.
+- No app, as partidas descobertas são baixadas automaticamente (no máximo 40 por vez, 4 em
+  paralelo); jogos ao vivo são atualizados a cada ~30 s. Na Web, use o proxy `api/livestats`.
+- Se a liga usar outro sistema de estatística, o link colado não terá id reconhecido e o app
+  avisará — envie um exemplo do link para criarmos o leitor correspondente.
+
+## Notícias da FPB
+A programação e os resultados da base são publicados como notícias (um jogo por linha, com o
+dia no cabeçalho). O app lê as últimas notícias pela API pública do WordPress
+(`/wp-json/wp/v2/posts?search=jogos`).
+
 ## Quando o site muda ou bloqueia
 
 No menu ⋮ de cada liga (Competições):

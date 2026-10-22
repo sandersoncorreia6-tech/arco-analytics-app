@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.0+7 — Estatísticas completas (aba Estatística/Online)
+### Novo
+- Importação da estatística online no padrão FIBA LiveStats: box score de todas as equipes e
+  jogadores (MIN, PTS, REB O/D, AST, ROB, TOC, ERR, FLT, FG/3P/LL, +/-, eficiência).
+- Mapa de arremessos em meia quadra com medidas FIBA (cesta ● / erro ✕), filtros por equipe,
+  jogador e período, e aproveitamento por zona (garrafão, meia distância, 3 da zona morta, 3 frontal).
+- Lance a lance de cada partida (rebotes, assistências, roubos, faltas, substituições...).
+- Temporada agregada: médias, eficiência por 100 posses, four factors, líderes e jogo a jogo.
+- Aba "Stats" (Equipes / Jogadores / Jogos); estatísticas da minha equipe na Home e no Analytics.
+- Descoberta automática das partidas nos links da FPB e importação manual pelo link do jogo.
+- Programação e resultados da base lidos das notícias da FPB (API pública do WordPress),
+  com data do cabeçalho ("Sábado – 18/04") e categoria (S16M → SUB 16 M).
+- Elenco real da equipe pode substituir o elenco demo da aba Equipe.
+- Páginas extras de qualquer site no app (ex.: endereço atual da LBC).
+- Proxy Web `api/livestats`.
+
 ## 0.6.0+6 — Correção da transmissão FPB/LBC
 ### Corrigido
 - APK de release sem permissão `INTERNET`: a sincronização FPB/LBC falhava sempre no aparelho.

@@ -3,7 +3,7 @@ import '../data/mock_repository.dart';
 import '../services/analytics_service.dart';
 import '../state/app_state.dart';
 import '../widgets/section_card.dart';
-import '../widgets/shot_chart.dart';
+import '../widgets/court_shot_chart.dart';
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
@@ -28,7 +28,16 @@ class AnalyticsScreen extends StatelessWidget {
         const SizedBox(height: 6),
         const Text('Descubra por que o time ganha ou perde.', style: TextStyle(color: Colors.white60)),
         const SizedBox(height: 18),
-        const SectionCard(title: 'Shot chart', trailing: Text('Amostra demo', style: TextStyle(color: Colors.white54, fontSize: 12)), child: ShotChart(shots: MockRepository.shots)),
+        Builder(builder: (context) {
+          // Mapa real da equipe do treinador quando houver estatística importada.
+          final mine = state.myTeamSeasons.where((t) => t.shots.isNotEmpty).toList();
+          final team = mine.isEmpty ? null : mine.first;
+          return SectionCard(
+            title: 'Mapa de arremessos',
+            trailing: Text(team == null ? 'Amostra demo' : '${team.name} • ${team.games} jogos', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            child: CourtShotChart(shots: team?.shots ?? MockRepository.shots),
+          );
+        }),
         const SizedBox(height: 14),
         SectionCard(
           title: usingDemoLineups ? 'Lineup Analytics • demo' : 'Lineup Analytics • scout real',

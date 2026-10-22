@@ -13,6 +13,8 @@ import 'game_detail_screen.dart';
 import 'games_screen.dart';
 import 'live_scout_screen.dart';
 import 'new_game_screen.dart';
+import 'team_stats_screen.dart';
+import '../widgets/stats_widgets.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -98,6 +100,31 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ]),
+        const SizedBox(height: 14),
+        SectionCard(
+          title: 'Estatísticas da minha equipe',
+          child: state.myTeamSeasons.isEmpty
+              ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    state.statsSyncing
+                        ? 'Importando estatísticas da FPB/LBC...'
+                        : 'Ainda não há estatísticas de ${state.coach.club} importadas. Importe um jogo pelo link da aba Estatística/Online do site.',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(onPressed: () => showAddStatsLinkDialog(context), icon: const Icon(Icons.add_link), label: const Text('Importar jogo')),
+                ])
+              : Column(children: [
+                  for (final t in state.myTeamSeasons)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      subtitle: Text('${t.games} J • ${t.wins}V ${t.losses}D • ${f1(t.ppg)} pts • ${f1(t.perGame(t.totals.reb))} reb • ${t.players.length} jogadores'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TeamStatsScreen(teamKey: t.key))),
+                    ),
+                ]),
+        ),
         const SizedBox(height: 14),
         Builder(builder: (context) {
           final mine = [for (final f in state.feeds) ...state.myTeamGames(f)]..sort(LeagueFeed.compareGames);

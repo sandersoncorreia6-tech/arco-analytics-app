@@ -27,6 +27,20 @@ class ParsedGame {
 
   bool get hasScore => homeScore != null && awayScore != null;
 
+  ParsedGame withDate(DateTime when) => _copy(scheduledAt: when);
+  ParsedGame withCompetition(String value) => _copy(competition: value);
+
+  ParsedGame _copy({DateTime? scheduledAt, String? competition}) => ParsedGame(
+        homeTeam: homeTeam,
+        awayTeam: awayTeam,
+        homeScore: homeScore,
+        awayScore: awayScore,
+        status: status,
+        competition: competition ?? this.competition,
+        venue: venue,
+        scheduledAt: scheduledAt ?? this.scheduledAt,
+      );
+
   /// Combina dois registros do mesmo jogo, preferindo o dado mais completo.
   ParsedGame merge(ParsedGame other) => ParsedGame(
         homeTeam: homeTeam,
@@ -162,18 +176,27 @@ class ScheduleParser {
   List<ParsedGame> parseText(String text) {
     final lines = text.split(RegExp(r'\r?\n')).map(clean).where((l) => l.isNotEmpty).toList();
     final out = _Collector();
+    // Cabeçalho de data em notícias/agendas ("Sábado – 28/03"): vale para os jogos abaixo dele.
+    String? dateHeader;
+    String? competitionHeader;
     var i = 0;
     while (i < lines.length) {
       ParsedGame? found;
       var used = 0;
       for (var k = 1; k <= 8 && i + k <= lines.length; k++) {
-        final game = parseCells(_cellsOf(lines.sublist(i, i + k)));
+        // Um jogo em várias linhas nunca engole uma linha que já é um jogo
+        // completo ou um cabeçalho de data.
+        if (k > 1) {
+          final added = lines[i + k - 1];
+          if (_isDateHeader(added) || parseCells(_cellsOf([added])) != null) break;
+        }
+        final game = _parseWindow(lines.sublist(i, i + k), dateHeader);
         if (game == null) continue;
         found = game;
         used = k;
         // Placar ainda incompleto? Tenta incluir a próxima linha.
         if (!game.hasScore && i + k < lines.length) {
-          final longer = parseCells(_cellsOf(lines.sublist(i, i + k + 1)));
+          final longer = _parseWindow(lines.sublist(i, i + k + 1), dateHeader);
           if (longer != null && longer.hasScore && longer.homeTeam == game.homeTeam) {
             found = longer;
             used = k + 1;
@@ -182,13 +205,62 @@ class ScheduleParser {
         break;
       }
       if (found != null) {
+        if (found.competition.isEmpty && competitionHeader != null) found = found.withCompetition(competitionOf(competitionHeader));
         out.add(found);
         i += used;
       } else {
+        if (_isDateHeader(lines[i])) dateHeader = lines[i];
+        if (competitionOf(lines[i]).isNotEmpty) competitionHeader = lines[i];
         i++;
       }
     }
     return out.sorted(reference);
+  }
+
+  ParsedGame? _parseWindow(List<String> lines, String? dateHeader) {
+    final cells = _cellsOf(lines);
+    final ownDate = dateTimeOf(lines.join(' '), reference) != null;
+    if (dateHeader == null || ownDate) return parseCells(cells);
+    final game = parseCells(cells);
+    if (game == null) return null;
+    final when = dateTimeOf('$dateHeader ${lines.join(' ')}', reference);
+    return when == null ? game : game.withDate(when);
+  }
+
+  bool _isDateHeader(String line) {
+    if (line.length > 60 || dateTimeOf(line, reference) == null) return false;
+    return RegExp(r'[a-z]').allMatches(normalize(_stripMeta(line))).length < 4;
+  }
+
+  /// Converte o corpo de uma notícia/página em linhas de texto e interpreta
+  /// (ex.: posts "Programação"/"Resultados" da FPB com um jogo por linha).
+  List<ParsedGame> parseArticleHtml(String html) {
+    final doc = html_parser.parse(html);
+    for (final e in doc.querySelectorAll('script, style, noscript, svg, template')) {
+      e.remove();
+    }
+    final buffer = StringBuffer();
+    void visit(dom.Node node) {
+      if (node is dom.Text) {
+        buffer.write(node.text);
+      } else if (node is dom.Element) {
+        const blocks = {'p', 'li', 'tr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'section', 'article', 'table', 'ul', 'ol', 'blockquote'};
+        final tag = node.localName;
+        if (tag == 'br') {
+          buffer.write('\n');
+          return;
+        }
+        if (tag == 'td' || tag == 'th') buffer.write('\t');
+        for (final child in node.nodes) {
+          visit(child);
+        }
+        if (blocks.contains(tag)) buffer.write('\n');
+      }
+    }
+
+    final body = doc.body;
+    if (body != null) visit(body);
+    return parseText(buffer.toString());
   }
 
   static List<String> _cellsOf(List<String> lines) => [

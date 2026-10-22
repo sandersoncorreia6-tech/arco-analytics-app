@@ -104,10 +104,13 @@ void main() {
     expect(coach.isMyTeam('Marília'), isFalse);
   });
 
-  test('páginas extras só do domínio da liga', () {
-    expect(LeagueSource.lbc.acceptsUrl(Uri.parse('https://www.lbc.org.br/tabela/sub-17')), isTrue);
-    expect(LeagueSource.lbc.acceptsUrl(Uri.parse('https://lbc.org.br/jogos')), isTrue);
-    expect(LeagueSource.lbc.acceptsUrl(Uri.parse('https://evil.com/?lbc.org.br')), isFalse);
-    expect(LeagueSource.lbc.acceptsUrl(Uri.parse('https://fakelbc.org.br/')), isFalse);
+  test('páginas extras: domínio da liga na Web, qualquer site no app', () {
+    expect(LeagueSource.lbc.isLeagueHost(Uri.parse('https://www.lbc.org.br/tabela/sub-17')), isTrue);
+    expect(LeagueSource.lbc.isLeagueHost(Uri.parse('https://lbc.org.br/jogos')), isTrue);
+    expect(LeagueSource.lbc.isLeagueHost(Uri.parse('https://evil.com/?lbc.org.br')), isFalse);
+    expect(LeagueSource.lbc.isLeagueHost(Uri.parse('https://fakelbc.org.br/')), isFalse);
+    // No app nativo, qualquer site pode ser cadastrado (ex.: o endereço real da liga).
+    expect(LeagueSource.lbc.acceptsUrl(Uri.parse('https://www.tupa.sp.gov.br/noticia/1')), isTrue);
+    expect(LeagueSource.lbc.acceptsUrl(Uri.parse('javascript:alert(1)')), isFalse);
   });
 }

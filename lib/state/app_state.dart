@@ -9,8 +9,12 @@ import '../models/league_game.dart';
 import '../models/live_game_session.dart';
 import '../models/play_event.dart';
 import '../models/player.dart';
+import '../models/box_score.dart';
+import '../services/fiba_livestats.dart';
 import '../services/league_sync_service.dart';
 import '../services/source_fetcher.dart';
+import '../services/stats_aggregator.dart';
+import '../services/stats_sync_service.dart';
 import 'league_feed.dart';
 
 class AppState extends ChangeNotifier with WidgetsBindingObserver {
@@ -35,6 +39,26 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final List<Game> games = [...MockRepository.games];
   LiveGameSession? activeGame;
 
+  // ---- Estatísticas completas (FIBA LiveStats) ----
+  final StatsSyncService _statsService = StatsSyncService();
+
+  /// Box scores por id de partida.
+  final Map<String, GameBoxScore> boxScores = {};
+
+  /// Partidas conhecidas (id → liga): descobertas nas páginas ou adicionadas por link.
+  final Map<String, String> knownMatches = {};
+
+  /// Último erro por partida (id → mensagem).
+  final Map<String, String> statsErrors = {};
+  final Map<String, DateTime> _statsErrorAt = {};
+  bool statsSyncing = false;
+  DateTime? statsLastSyncAt;
+  Map<String, TeamSeason>? _seasons;
+
+  static const _boxScoresKey = 'arco_boxscores_v1';
+  static const _knownMatchesKey = 'arco_known_matches_v1';
+  static const _maxStoredGames = 150;
+
   static const _playersKey = 'arco_players_v1';
   static const _gamesKey = 'arco_games_v1';
   static const _activeGameKey = 'arco_active_game_v1';
@@ -50,6 +74,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       for (final feed in feeds) {
         _restoreFeed(prefs, feed);
       }
+      _restoreStats(prefs);
     } catch (_) {
       // Armazenamento indisponível (ex.: navegador em modo privado): segue sem cache.
     } finally {
@@ -65,6 +90,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final now = DateTime.now();
     for (final feed in feeds) {
       if (feed.isDue(now)) syncLeague(feed, silent: true);
+    }
+    // Partidas ao vivo: estatística atualizada a cada ~30 s.
+    final last = statsLastSyncAt;
+    if (boxScores.values.any((g) => g.isLive) && (last == null || now.difference(last).inSeconds >= 30)) {
+      syncStats(silent: true);
     }
   }
 
@@ -90,6 +120,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final result = await feed.service.fetch(extraPages: feed.extraPages);
       feed.apply(result);
       await _saveFeed(feed);
+      if (_registerMatches(result.matchIds, feed.league)) unawaited(syncStats(silent: true));
     } catch (e) {
       feed.error = SourceFetcher.describe(e);
       feed.lastAttempts = e is LeagueSyncException ? e.attempts : const [];
@@ -127,6 +158,156 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await prefs.setStringList(feed.pagesKey, feed.extraPages);
     notifyListeners();
     await syncLeague(feed);
+  }
+
+  // ---------------------------------------------------------------- Estatísticas
+
+  /// Temporada de cada equipe (somatório de todas as partidas importadas).
+  Map<String, TeamSeason> get teamSeasons => _seasons ??= StatsAggregator.build(boxScores.values);
+
+  /// Equipes do treinador logado (ex.: todas as categorias do Tupã).
+  List<TeamSeason> get myTeamSeasons => teamSeasons.values.where((t) => coach.isMyTeam(t.name)).toList()
+    ..sort((a, b) => b.games.compareTo(a.games));
+
+  List<GameBoxScore> get boxScoreList => boxScores.values.toList()
+    ..sort((a, b) {
+      if (a.isLive != b.isLive) return a.isLive ? -1 : 1;
+      return int.parse(b.matchId).compareTo(int.parse(a.matchId));
+    });
+
+  bool _registerMatches(Iterable<String> ids, String league) {
+    var added = false;
+    for (final id in ids) {
+      if (knownMatches.containsKey(id)) continue;
+      knownMatches[id] = league;
+      added = true;
+    }
+    return added || boxScores.values.any((g) => g.isLive);
+  }
+
+  /// Baixa as partidas novas e atualiza as que estão ao vivo.
+  Future<void> syncStats({bool silent = false, bool retryErrors = false}) async {
+    if (statsSyncing) return;
+    final now = DateTime.now();
+    final pending = <String, String>{};
+    for (final e in knownMatches.entries) {
+      final cached = boxScores[e.key];
+      final errorAt = _statsErrorAt[e.key];
+      if (!retryErrors && errorAt != null && now.difference(errorAt).inMinutes < 30) continue;
+      final stale = cached != null && !cached.isFinal && now.difference(cached.fetchedAt).inSeconds >= 25;
+      if (cached == null || stale) pending[e.key] = e.value;
+      if (pending.length >= 40) break;
+    }
+    if (pending.isEmpty) return;
+    statsSyncing = true;
+    if (!silent) notifyListeners();
+    try {
+      final results = await _statsService.fetchMany(pending);
+      for (final r in results.entries) {
+        final value = r.value;
+        if (value is GameBoxScore) {
+          boxScores[r.key] = value;
+          statsErrors.remove(r.key);
+          _statsErrorAt.remove(r.key);
+        } else {
+          statsErrors[r.key] = value.toString();
+          _statsErrorAt[r.key] = now;
+        }
+      }
+      _seasons = null;
+      statsLastSyncAt = DateTime.now();
+      await _saveStats();
+    } finally {
+      statsSyncing = false;
+      notifyListeners();
+    }
+  }
+
+  /// Importa uma partida pelo link da estatística online (ou só o número).
+  /// Retorna `null` em caso de sucesso, ou a mensagem de erro.
+  Future<String?> addStatsLink(String input, {String league = 'FPB'}) async {
+    final id = FibaLiveStats.matchIdFromInput(input);
+    if (id == null) return 'Não encontrei o número da partida no link. Abra o jogo na aba Estatística/Online e copie o endereço da página.';
+    knownMatches[id] = league;
+    try {
+      boxScores[id] = await _statsService.fetch(id, league: league);
+      statsErrors.remove(id);
+      _seasons = null;
+      await _saveStats();
+      return null;
+    } catch (e) {
+      statsErrors[id] = SourceFetcher.describe(e);
+      await _saveStats();
+      return statsErrors[id];
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> removeBoxScore(String matchId) async {
+    boxScores.remove(matchId);
+    knownMatches.remove(matchId);
+    statsErrors.remove(matchId);
+    _seasons = null;
+    await _saveStats();
+    notifyListeners();
+  }
+
+  /// Substitui o elenco da aba Equipe pelos jogadores reais de uma equipe importada.
+  Future<int> importRosterFrom(TeamSeason team) async {
+    final roster = team.roster;
+    if (roster.isEmpty) return 0;
+    players
+      ..clear()
+      ..addAll([
+        for (final p in roster)
+          Player(
+            id: 'site_${team.key}_${p.key}'.replaceAll(' ', '_'),
+            name: p.name,
+            position: p.position.isEmpty ? '-' : p.position,
+            number: int.tryParse(p.number) ?? 0,
+            points: p.ppg.round(),
+            assists: p.apg.round(),
+            rebounds: p.rpg.round(),
+            steals: p.perGame(p.totals.stl).round(),
+            blocks: p.perGame(p.totals.blk).round(),
+            turnovers: p.perGame(p.totals.tov).round(),
+            fgm: p.totals.fgm,
+            fga: p.totals.fga,
+            threePm: p.totals.tpm,
+            threePa: p.totals.tpa,
+            ftm: p.totals.ftm,
+            fta: p.totals.fta,
+          ),
+      ]);
+    notifyListeners();
+    await _saveTeam();
+    return roster.length;
+  }
+
+  void _restoreStats(SharedPreferences prefs) {
+    final known = prefs.getString(_knownMatchesKey);
+    if (known != null) {
+      knownMatches.addAll((jsonDecode(known) as Map).map((k, v) => MapEntry(k.toString(), v.toString())));
+    }
+    final raw = prefs.getString(_boxScoresKey);
+    if (raw == null) return;
+    for (final item in jsonDecode(raw) as List) {
+      try {
+        final g = GameBoxScore.fromJson((item as Map).cast<String, dynamic>());
+        boxScores[g.matchId] = g;
+      } catch (_) {
+        // Partida ilegível: será baixada de novo.
+      }
+    }
+  }
+
+  Future<void> _saveStats() async {
+    final prefs = await SharedPreferences.getInstance();
+    var list = boxScoreList;
+    if (list.length > _maxStoredGames) list = list.sublist(0, _maxStoredGames);
+    await prefs.setString(_boxScoresKey, jsonEncode([for (final g in list) g.toJson()]));
+    await prefs.setString(_knownMatchesKey, jsonEncode(knownMatches));
   }
 
   /// Jogos da equipe do treinador logado (sem diferenciar acentos).

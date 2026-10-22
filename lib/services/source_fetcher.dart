@@ -34,7 +34,7 @@ class SourceFetcher {
   // nos identificamos como um navegador móvel comum. No navegador o
   // user-agent é do próprio browser (cabeçalhos extras forçariam preflight CORS).
   static const _nativeHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36 ARCO-Analytics/0.6',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36 ARCO-Analytics/0.7',
     'Accept': 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
     'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.6',
   };

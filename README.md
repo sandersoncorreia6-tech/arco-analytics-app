@@ -3,7 +3,18 @@
 Plataforma Flutter/Dart de inteligência estatística para treinadores de basquete.
 **Dado → Contexto → Insight → Decisão**
 
-Versão: `0.6.0+6` • Application ID Android: `com.arcoanalytics.app` (não alterar)
+Versão: `0.7.0+7` • Application ID Android: `com.arcoanalytics.app` (não alterar)
+
+## Novo na 0.7: estatísticas completas
+
+A aba **Stats** importa a estatística online das partidas (padrão FIBA LiveStats, usado na
+aba Estatística/Online das federações): todas as equipes, todos os jogadores, box score,
+**mapa de arremessos** (onde cada cesta foi feita ou errada) e lance a lance. As partidas são
+descobertas automaticamente nos links das páginas da FPB; qualquer jogo também pode ser
+importado colando o link da página de estatística (botão 🔗 na aba Stats).
+
+> A estatística online registra posição apenas para **arremessos**. Rebotes, assistências,
+> roubos etc. aparecem por jogador e no lance a lance, sem coordenada na quadra.
 
 ## O que mudou na 0.6 (correção da transmissão FPB/LBC)
 

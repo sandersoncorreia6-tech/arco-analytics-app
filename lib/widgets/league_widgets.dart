@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -343,7 +344,8 @@ Future<void> showSourcesDialog(BuildContext context, LeagueFeed feed) async {
             Text('Sempre consultadas:\n${feed.source.pages.join('\n')}', style: const TextStyle(color: Colors.white60, fontSize: 12)),
             const SizedBox(height: 12),
             Text(
-              'Páginas extras do site ${feed.source.host} (uma por linha) — por exemplo, a página da tabela da sua categoria:',
+              'Páginas extras, uma por linha — por exemplo, a tabela da sua categoria ou o endereço atual do site da liga'
+              '${kIsWeb ? ' (na versão Web, só páginas de ${feed.source.host})' : ''}:',
               style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 8),
@@ -352,7 +354,7 @@ Future<void> showSourcesDialog(BuildContext context, LeagueFeed feed) async {
               minLines: 3,
               maxLines: 6,
               keyboardType: TextInputType.url,
-              decoration: InputDecoration(border: const OutlineInputBorder(), hintText: 'https://${feed.source.host}/...', errorText: error),
+              decoration: InputDecoration(border: const OutlineInputBorder(), hintText: 'https://...', errorText: error),
             ),
           ]),
         ),
@@ -366,7 +368,7 @@ Future<void> showSourcesDialog(BuildContext context, LeagueFeed feed) async {
                 return uri == null || !feed.source.acceptsUrl(uri);
               }).toList();
               if (invalid.isNotEmpty) {
-                setLocal(() => error = 'Use apenas endereços de ${feed.source.host}: ${invalid.first}');
+                setLocal(() => error = kIsWeb ? 'Na Web, use apenas endereços de ${feed.source.host}: ${invalid.first}' : 'Endereço inválido: ${invalid.first}');
                 return;
               }
               Navigator.pop(dialogContext);

@@ -2,7 +2,7 @@ import '../models/game.dart';
 import '../models/insight.dart';
 import '../models/lineup.dart';
 import '../models/player.dart';
-import '../models/shot.dart';
+import '../models/box_score.dart';
 
 class MockRepository {
   static const players = <Player>[
@@ -32,13 +32,15 @@ class MockRepository {
     Insight(title: 'Zona de baixa eficiência', description: 'O lado esquerdo do perímetro concentra volume alto com aproveitamento abaixo da média.', level: InsightLevel.warning, evidence: '27% de 3PT nessa zona'),
   ];
 
-  static const shots = <Shot>[
-    Shot(x: .25, y: .20, made: true, points: 2, player: 'Lucas Silva'),
-    Shot(x: .42, y: .31, made: true, points: 2, player: 'Rafael Costa'),
-    Shot(x: .68, y: .28, made: false, points: 2, player: 'João Lima'),
-    Shot(x: .15, y: .55, made: false, points: 3, player: 'João Lima'),
-    Shot(x: .82, y: .58, made: true, points: 3, player: 'Lucas Silva'),
-    Shot(x: .50, y: .70, made: false, points: 3, player: 'Rafael Costa'),
-    Shot(x: .72, y: .46, made: true, points: 3, player: 'Rafael Costa'),
+  static const shots = <ShotAttempt>[
+    ShotAttempt(x: .25, y: .20, made: true, points: 2, player: 'Lucas Silva'),
+    ShotAttempt(x: .42, y: .31, made: true, points: 2, player: 'Rafael Costa'),
+    ShotAttempt(x: .68, y: .28, made: false, points: 2, player: 'João Lima'),
+    ShotAttempt(x: .08, y: .12, made: false, points: 3, player: 'João Lima'),
+    ShotAttempt(x: .82, y: .58, made: true, points: 3, player: 'Lucas Silva'),
+    ShotAttempt(x: .50, y: .62, made: false, points: 3, player: 'Rafael Costa'),
+    ShotAttempt(x: .93, y: .14, made: true, points: 3, player: 'Rafael Costa'),
+    ShotAttempt(x: .50, y: .12, made: true, points: 2, player: 'Bruno Alves'),
+    ShotAttempt(x: .47, y: .16, made: false, points: 2, player: 'Bruno Alves'),
   ];
 }

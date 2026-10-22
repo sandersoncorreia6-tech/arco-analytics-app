@@ -3,8 +3,8 @@ import '../widgets/responsive_frame.dart';
 import 'analytics_screen.dart';
 import 'competition_hub_screen.dart';
 import 'home_screen.dart';
-import 'insights_screen.dart';
 import 'more_screen.dart';
+import 'stats_hub_screen.dart';
 import 'team_screen.dart';
 
 class RootShell extends StatefulWidget {
@@ -20,18 +20,18 @@ class _RootShellState extends State<RootShell> {
   static const screens = [
     HomeScreen(),
     CompetitionHubScreen(),
+    StatsHubScreen(),
     TeamScreen(),
     AnalyticsScreen(),
-    InsightsScreen(),
     MoreScreen(),
   ];
 
   static const destinations = [
     NavigationRailDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: Text('Home')),
     NavigationRailDestination(icon: Icon(Icons.sports_basketball_outlined), selectedIcon: Icon(Icons.sports_basketball), label: Text('Competições')),
+    NavigationRailDestination(icon: Icon(Icons.leaderboard_outlined), selectedIcon: Icon(Icons.leaderboard), label: Text('Estatísticas')),
     NavigationRailDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: Text('Equipe')),
     NavigationRailDestination(icon: Icon(Icons.query_stats_outlined), selectedIcon: Icon(Icons.query_stats), label: Text('Analytics')),
-    NavigationRailDestination(icon: Icon(Icons.lightbulb_outline), selectedIcon: Icon(Icons.lightbulb), label: Text('Insights')),
     NavigationRailDestination(icon: Icon(Icons.more_horiz), selectedIcon: Icon(Icons.more_horiz_rounded), label: Text('Mais')),
   ];
 
@@ -77,9 +77,9 @@ class _RootShellState extends State<RootShell> {
             destinations: const [
               NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
               NavigationDestination(icon: Icon(Icons.sports_basketball_outlined), selectedIcon: Icon(Icons.sports_basketball), label: 'Ligas'),
+              NavigationDestination(icon: Icon(Icons.leaderboard_outlined), selectedIcon: Icon(Icons.leaderboard), label: 'Stats'),
               NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'Equipe'),
               NavigationDestination(icon: Icon(Icons.query_stats_outlined), selectedIcon: Icon(Icons.query_stats), label: 'Analytics'),
-              NavigationDestination(icon: Icon(Icons.lightbulb_outline), selectedIcon: Icon(Icons.lightbulb), label: 'Insights'),
               NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Mais'),
             ],
           ),

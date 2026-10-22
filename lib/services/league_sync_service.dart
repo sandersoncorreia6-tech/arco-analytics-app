@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/league_game.dart';
+import 'fiba_livestats.dart';
 import 'schedule_parser.dart';
 import 'source_fetcher.dart';
 
@@ -32,7 +35,12 @@ class LeagueSource {
     league: 'FPB',
     name: 'Federação Paulista de Basketball',
     officialUrl: 'https://fpb.com.br/online/',
-    pages: ['https://fpb.com.br/online/', 'https://fpb.com.br/'],
+    pages: [
+      'https://fpb.com.br/online/',
+      'https://fpb.com.br/',
+      // Notícias de programação/resultados da base (um jogo por linha) via API pública do WordPress.
+      'https://fpb.com.br/wp-json/wp/v2/posts?per_page=12&search=jogos&_fields=date,link,title,content',
+    ],
     proxyPath: 'api/fpb-online',
     host: 'fpb.com.br',
   );
@@ -46,7 +54,11 @@ class LeagueSource {
     host: 'lbc.org.br',
   );
 
-  bool acceptsUrl(Uri uri) => (uri.scheme == 'https' || uri.scheme == 'http') && (uri.host == host || uri.host.endsWith('.$host'));
+  bool isLeagueHost(Uri uri) => (uri.scheme == 'https' || uri.scheme == 'http') && (uri.host == host || uri.host.endsWith('.$host'));
+
+  /// Páginas extras: no app nativo, qualquer site (ex.: o endereço real da LBC,
+  /// uma página da prefeitura); na Web, só o domínio da liga (limite do proxy).
+  bool acceptsUrl(Uri uri) => kIsWeb ? isLeagueHost(uri) : (uri.scheme == 'https' || uri.scheme == 'http') && uri.host.contains('.');
 }
 
 /// Resultado de uma página consultada, para o diagnóstico de conexão.
@@ -84,7 +96,10 @@ class LeagueSyncResult {
   /// Aviso quando a fonte respondeu mas nada foi interpretado.
   final String? warning;
 
-  const LeagueSyncResult({required this.games, required this.fetchedAt, required this.attempts, this.warning});
+  /// Partidas com estatística online (FIBA LiveStats) citadas nas páginas.
+  final Set<String> matchIds;
+
+  const LeagueSyncResult({required this.games, required this.fetchedAt, required this.attempts, this.warning, this.matchIds = const {}});
 }
 
 /// Coleta e interpreta os jogos de uma [LeagueSource].
@@ -118,13 +133,14 @@ class LeagueSyncService {
 
   Future<LeagueSyncResult> fetch({List<String> extraPages = const []}) async {
     final now = DateTime.now();
-    final parser = ScheduleParser(reference: now);
     final targets = endpoints(extraPages: extraPages);
+    final matchIds = <String>{};
 
     final attempts = await Future.wait(targets.map((uri) async {
       try {
         final page = await _fetcher.get(uri);
-        final parsed = parser.parseHtml(page.body);
+        final (parsed, ids) = parsePage(page.body, now);
+        matchIds.addAll(ids);
         return (
           SourceAttempt(
             url: uri.toString(),
@@ -173,12 +189,37 @@ class LeagueSyncService {
     return LeagueSyncResult(
       games: byId.values.toList(),
       fetchedAt: now,
+      matchIds: matchIds,
       attempts: [for (final a in attempts) a.$1],
-      warning: byId.isEmpty
+      warning: byId.isEmpty && matchIds.isEmpty
           ? 'O site da ${source.league} respondeu, mas nenhum jogo foi reconhecido na página. '
               'Use "Colar jogos" ou cadastre a página exata da agenda em "Fontes".'
           : null,
     );
+  }
+
+  /// Interpreta uma resposta: página HTML ou lista de notícias JSON do WordPress.
+  /// Devolve os jogos e os ids de partidas com estatística online.
+  static (List<ParsedGame>, Set<String>) parsePage(String body, DateTime now) {
+    final trimmed = body.trimLeft();
+    if (trimmed.startsWith('[')) {
+      try {
+        final posts = jsonDecode(trimmed) as List;
+        final games = <ParsedGame>[];
+        final ids = <String>{};
+        for (final post in posts.whereType<Map>()) {
+          final content = post['content'];
+          final html = content is Map ? (content['rendered'] ?? '').toString() : '';
+          final published = DateTime.tryParse((post['date'] ?? '').toString()) ?? now;
+          games.addAll(ScheduleParser(reference: published).parseArticleHtml(html));
+          ids.addAll(FibaLiveStats.findMatchIds(html));
+        }
+        return (games, ids);
+      } catch (_) {
+        // Não era JSON do WordPress; segue como HTML.
+      }
+    }
+    return (ScheduleParser(reference: now).parseHtml(body), FibaLiveStats.findMatchIds(body));
   }
 
   /// Interpreta texto colado pelo treinador (copiado do site, planilha ou WhatsApp).
