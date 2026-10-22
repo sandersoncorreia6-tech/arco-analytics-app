@@ -14,9 +14,9 @@ class MockRepository {
   ];
 
   static final games = <Game>[
-    Game(opponent: 'Franca B', date: DateTime(2026, 10, 20), ourScore: 82, opponentScore: 75, possessions: 74, fgm: 30, fga: 63, threePm: 9, threePa: 27, ftm: 13, fta: 17, turnovers: 9, offensiveRebounds: 12, availableOffensiveRebounds: 37, opponentPoints: 75),
-    Game(opponent: 'Marília', date: DateTime(2026, 10, 16), ourScore: 71, opponentScore: 76, possessions: 70, fgm: 26, fga: 65, threePm: 6, threePa: 28, ftm: 13, fta: 18, turnovers: 17, offensiveRebounds: 10, availableOffensiveRebounds: 39, opponentPoints: 76),
-    Game(opponent: 'Bauru B', date: DateTime(2026, 10, 12), ourScore: 88, opponentScore: 79, possessions: 78, fgm: 33, fga: 67, threePm: 10, threePa: 25, ftm: 12, fta: 16, turnovers: 11, offensiveRebounds: 14, availableOffensiveRebounds: 35, opponentPoints: 79),
+    Game(id: 'demo_2026_10_20_franca_b', teamId: 'team_tupa_monstrinho', seasonId: 'season_2026', competition: 'DEMO', category: 'DEMO', source: 'mock', opponent: 'Franca B', date: DateTime(2026, 10, 20), ourScore: 82, opponentScore: 75, possessions: 74, fgm: 30, fga: 63, threePm: 9, threePa: 27, ftm: 13, fta: 17, turnovers: 9, offensiveRebounds: 12, availableOffensiveRebounds: 37, opponentPoints: 75),
+    Game(id: 'demo_2026_10_16_marilia', teamId: 'team_tupa_monstrinho', seasonId: 'season_2026', competition: 'DEMO', category: 'DEMO', source: 'mock', opponent: 'Marília', date: DateTime(2026, 10, 16), ourScore: 71, opponentScore: 76, possessions: 70, fgm: 26, fga: 65, threePm: 6, threePa: 28, ftm: 13, fta: 18, turnovers: 17, offensiveRebounds: 10, availableOffensiveRebounds: 39, opponentPoints: 76),
+    Game(id: 'demo_2026_10_12_bauru_b', teamId: 'team_tupa_monstrinho', seasonId: 'season_2026', competition: 'DEMO', category: 'DEMO', source: 'mock', opponent: 'Bauru B', date: DateTime(2026, 10, 12), ourScore: 88, opponentScore: 79, possessions: 78, fgm: 33, fga: 67, threePm: 10, threePa: 25, ftm: 12, fta: 16, turnovers: 11, offensiveRebounds: 14, availableOffensiveRebounds: 35, opponentPoints: 79),
   ];
 
   static const lineups = <Lineup>[
