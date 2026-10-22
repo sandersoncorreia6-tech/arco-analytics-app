@@ -1,14 +1,13 @@
-# Estrutura do repositório ARCO Analytics
+# Estrutura oficial do ARCO Analytics
 
-Este repositório usa o código-fonte Flutter diretamente na raiz.
+A fonte Flutter fica diretamente na raiz do repositório.
 
-## Diretórios principais
-- lib/: aplicação Flutter
-- web/: PWA/Web
-- api/: integrações/proxies web
-- docs/: documentação
-- .github/workflows/: CI/CD
-- scripts/: automações de build/release
+- `lib/`: aplicação, telas, modelos, estado e serviços
+- `web/`: Web/PWA
+- `api/`: integrações/proxies
+- `docs/`: documentação técnica e de produto
+- `scripts/`: automações de build/release
+- `.github/workflows/`: CI/CD
 
-## Regra
-Novas versões devem alterar o código-fonte diretamente. ZIPs e fontes Base64 são mantidos apenas temporariamente durante a migração e não devem ser a fonte oficial de build.
+## Regra de desenvolvimento
+O código-fonte na raiz é a fonte oficial. ZIPs e fragmentos Base64 são legados temporários de migração e não devem receber novas funcionalidades.
