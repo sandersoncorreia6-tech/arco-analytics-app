@@ -37,6 +37,15 @@ class PlayerStatLine {
 }
 
 class Game {
+  final String id;
+  final String teamId;
+  final String seasonId;
+  final String competition;
+  final String category;
+  final String venue;
+  final String source;
+  final String sourceUrl;
+  final bool isHome;
   final String opponent;
   final DateTime date;
   final int ourScore;
@@ -56,6 +65,15 @@ class Game {
   final List<PlayEvent> events;
 
   const Game({
+    this.id = '',
+    this.teamId = '',
+    this.seasonId = '',
+    this.competition = '',
+    this.category = '',
+    this.venue = '',
+    this.source = 'arco',
+    this.sourceUrl = '',
+    this.isHome = true,
     required this.opponent,
     required this.date,
     required this.ourScore,
