@@ -119,7 +119,7 @@ class HomeScreen extends StatelessWidget {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                      subtitle: Text('${t.games} J • ${t.wins}V ${t.losses}D • ${f1(t.ppg)} pts • ${f1(t.perGame(t.totals.reb))} reb • ${t.players.length} jogadores'),
+                      subtitle: Text('${t.games} J • ${t.wins}V ${t.losses}D • ${f1(t.ppg)} pts • ${f1(t.perGame(t.totals.reb))} reb • ${plural(t.players.length, 'jogador', 'jogadores')}'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TeamStatsScreen(teamKey: t.key))),
                     ),

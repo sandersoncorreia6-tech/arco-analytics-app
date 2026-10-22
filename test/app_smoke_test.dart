@@ -79,7 +79,7 @@ void main() {
 
       await tester.tap(find.text('Stats').last);
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.textContaining('2 equipes • 3 jogadores • 1 jogos'), findsOneWidget);
+      expect(find.textContaining('2 equipes • 3 jogadores • 1 jogo'), findsOneWidget);
 
       await tester.tap(find.text('Associação Tupã Basquete').first);
       await tester.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));

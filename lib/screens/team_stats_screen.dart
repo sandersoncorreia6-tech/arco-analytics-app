@@ -34,7 +34,7 @@ class _TeamStatsScreenState extends State<TeamStatsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(t.name)),
       body: ListView(padding: const EdgeInsets.all(14), children: [
-        Text('${t.leagues.join(' / ')} • $g jogos • ${t.wins}V ${t.losses}D',
+        Text('${t.leagues.join(' / ')} • ${plural(g, 'jogo', 'jogos')} • ${t.wins}V ${t.losses}D',
             style: const TextStyle(color: Colors.white60)),
         const SizedBox(height: 12),
         SectionCard(

@@ -5,6 +5,7 @@ import '../state/app_state.dart';
 
 String f1(double v) => v.toStringAsFixed(1);
 String pct(double v) => '${v.toStringAsFixed(0)}%';
+String plural(int n, String one, String many) => '$n ${n == 1 ? one : many}';
 String mins(int seconds) => '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
 
 /// Grade de números com rótulo (PTS, REB, FG%...).
@@ -19,7 +20,7 @@ class StatTiles extends StatelessWidget {
         children: [
           for (final (label, value) in items)
             Container(
-              width: 76,
+              width: 72,
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
               decoration: BoxDecoration(color: Colors.white.withValues(alpha: .05), borderRadius: BorderRadius.circular(12)),
               child: Column(children: [

@@ -63,7 +63,11 @@ class _StatsHubScreenState extends State<StatsHubScreen> {
               Text('Estatísticas', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
               const SizedBox(height: 4),
               Text(
-                '${teams.length} equipes • ${teams.fold<int>(0, (s, t) => s + t.players.length)} jogadores • ${games.length} jogos',
+                [
+                  plural(teams.length, 'equipe', 'equipes'),
+                  plural(teams.fold<int>(0, (s, t) => s + t.players.length), 'jogador', 'jogadores'),
+                  plural(games.length, 'jogo', 'jogos'),
+                ].join(' • '),
                 style: const TextStyle(color: Colors.white60),
               ),
             ]),
@@ -94,9 +98,9 @@ class _StatsHubScreenState extends State<StatsHubScreen> {
         ],
         SegmentedButton<int>(
           segments: const [
-            ButtonSegment(value: 0, label: Text('Equipes'), icon: Icon(Icons.shield_outlined)),
-            ButtonSegment(value: 1, label: Text('Jogadores'), icon: Icon(Icons.person_outline)),
-            ButtonSegment(value: 2, label: Text('Jogos'), icon: Icon(Icons.scoreboard_outlined)),
+            ButtonSegment(value: 0, label: Text('Equipes')),
+            ButtonSegment(value: 1, label: Text('Jogadores')),
+            ButtonSegment(value: 2, label: Text('Jogos')),
           ],
           selected: {tab},
           showSelectedIcon: false,
@@ -217,7 +221,7 @@ class _TeamTile extends StatelessWidget {
           : null,
       child: ListTile(
         title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text('${t.games} J • ${t.wins}V ${t.losses}D • ${f1(t.ppg)} pts • sofre ${f1(t.oppPpg)} • ${t.players.length} jogadores'),
+        subtitle: Text('${t.games} J • ${t.wins}V ${t.losses}D • ${f1(t.ppg)} pts • sofre ${f1(t.oppPpg)} • ${plural(t.players.length, 'jogador', 'jogadores')}'),
         trailing: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text('${t.netRating >= 0 ? '+' : ''}${f1(t.netRating)}',
               style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: t.netRating >= 0 ? Colors.greenAccent : Colors.redAccent)),
