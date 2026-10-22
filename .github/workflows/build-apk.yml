@@ -1,0 +1,41 @@
+name: Build ARCO APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar projeto
+        uses: actions/checkout@v4
+
+      - name: Descompactar ARCO
+        run: unzip arco_analytics_build_ready.zip
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Criar estrutura Android
+        working-directory: arco_analytics
+        run: flutter create . --platforms=android --org com.arcoanalytics
+
+      - name: Instalar dependências
+        working-directory: arco_analytics
+        run: flutter pub get
+
+      - name: Gerar APK
+        working-directory: arco_analytics
+        run: flutter build apk --release
+
+      - name: Salvar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARCO-Analytics-APK
+          path: arco_analytics/build/app/outputs/flutter-apk/app-release.apk
