@@ -2,6 +2,7 @@ import '../models/box_score.dart';
 import '../services/stats_aggregator.dart';
 import 'game_analysis.dart';
 import 'lineups.dart';
+import 'sample_size.dart';
 import 'shot_zones.dart';
 
 /// Uso de posses (USG%): fatia das posses da equipe que o jogador finaliza
@@ -162,10 +163,24 @@ class SeasonAnalysis {
     final ranked = lineups().where((x) => x.minutes >= 6).toList()..sort((a, b) => b.plusMinus.compareTo(a.plusMinus));
     if (ranked.length >= 2) {
       final best = ranked.first, worst = ranked.last;
-      out.add(Finding('Melhor formação', '${best.names.join(' – ')}: ${best.plusMinus >= 0 ? '+' : ''}${best.plusMinus} em ${n1(best.minutes)} min.',
-          level: FindingLevel.positive));
+      out.add(Finding('Melhor formação',
+          '${best.sample.phrase}: ${best.names.join(' – ')} com saldo ${best.plusMinus >= 0 ? '+' : ''}${best.plusMinus} em ${n1(best.minutes)} min juntos '
+          '(${best.games} ${best.games == 1 ? 'jogo' : 'jogos'}).',
+          level: best.sample == SampleLevel.low ? FindingLevel.neutral : FindingLevel.positive));
       if (worst.plusMinus < 0) {
-        out.add(Finding('Pior formação', '${worst.names.join(' – ')}: ${worst.plusMinus} em ${n1(worst.minutes)} min.', level: FindingLevel.warning));
+        out.add(Finding('Pior formação',
+            '${worst.sample.phrase}: ${worst.names.join(' – ')} com saldo ${worst.plusMinus} em ${n1(worst.minutes)} min juntos.',
+            level: worst.sample == SampleLevel.low ? FindingLevel.neutral : FindingLevel.warning));
+      }
+    }
+
+    // Impacto com contexto: saldo em quadra e com quem a diferença foi maior.
+    final all = lineups();
+    if (all.isNotEmpty) {
+      final solos = Groups.of(all, 1).where((g) => g.seconds >= 300).toList()..sort((a, b) => b.plusMinus.compareTo(a.plusMinus));
+      if (solos.isNotEmpty) {
+        final sentence = Groups.impactSentence(all, solos.first.keys.single);
+        if (sentence != null) out.add(Finding('Maior impacto em quadra: ${solos.first.names.single}', sentence, level: FindingLevel.positive));
       }
     }
 

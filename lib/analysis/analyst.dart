@@ -1,6 +1,8 @@
 import '../services/schedule_parser.dart';
 import '../services/stats_aggregator.dart';
 import 'game_analysis.dart';
+import 'lineups.dart';
+import 'sample_size.dart';
 import 'season_analysis.dart';
 import 'shot_zones.dart';
 
@@ -26,6 +28,7 @@ class ArcoAnalyst {
     'E se tivéssemos acertado os lances livres?',
     'Em qual quarto o time mais cai?',
     'Qual a melhor formação?',
+    'Quem joga melhor junto?',
     'O que treinar esta semana?',
     'Quem são os destaques?',
     'Compare os últimos jogos',
@@ -61,6 +64,8 @@ class ArcoAnalyst {
     if (has(['turnover', 'perda de bola', 'perdas de bola', 'desperdicio', 'erros de passe', 'erros', 'bola perdida'])) return _turnovers(season);
     if (has(['rebote'])) return _rebounds(season);
     if (has(['quarto', 'periodo', 'cai', 'cresce', 'final de jogo'])) return _quarters(season);
+    if (has(['junto', 'dupla', 'trio', 'parceria', 'combina'])) return _groups(season);
+    if (has(['impacto', 'impactando', 'defensivamente', 'on off', 'on/off'])) return _impact(season, defensive: has(['defens']));
     if (has(['formacao', 'quinteto', 'lineup', 'escalacao', 'titular'])) return _lineups(season);
     if (has(['treino', 'treinar', 'melhorar', 'melhoria', 'corrigir', 'trabalhar'])) return _training(season);
     if (has(['destaque', 'melhor jogador', 'cestinha', 'quem'])) return _leaders(t);
@@ -179,14 +184,37 @@ class ArcoAnalyst {
       return const AnalystReply('Para analisar formações preciso do lance a lance com substituições (vem na estatística online completa).');
     }
     list.sort((a, b) => b.plusMinus.compareTo(a.plusMinus));
-    String row(l) => '${l.names.join(' – ')}: ${l.plusMinus >= 0 ? '+' : ''}${l.plusMinus} em ${n1(l.minutes)} min '
-        '(ataque ${n1(l.offRating)}, defesa ${n1(l.defRating)} por 100 posses)';
+    String row(LineupStat l) => '${l.names.join(' – ')}: ${l.plusMinus >= 0 ? '+' : ''}${l.plusMinus} em ${n1(l.minutes)} min '
+        '(ataque ${n1(l.offRating)}, defesa ${n1(l.defRating)} por 100 posses) • ${l.sample.label}';
     final most = [...list]..sort((a, b) => b.seconds.compareTo(a.seconds));
     return AnalystReply(
       'Melhores formações:\n${list.take(3).map((l) => '• ${row(l)}').join('\n')}\n\n'
       'Piores:\n${list.reversed.take(2).map((l) => '• ${row(l)}').join('\n')}\n\n'
-      'Mais utilizada: ${row(most.first)}.\nAtenção: formações com poucos minutos têm amostra pequena.',
+      'Mais utilizada: ${row(most.first)}.\nFormações com AMOSTRA BAIXA são tendência, não conclusão: confirme com mais minutos juntos.',
     );
+  }
+
+  AnalystReply _groups(SeasonAnalysis s) {
+    final lineups = s.lineups();
+    if (lineups.isEmpty) return const AnalystReply('Para analisar quem joga melhor junto preciso do lance a lance com substituições.');
+    String row(GroupStat g) => '${g.names.join(' + ')}: ${g.plusMinus >= 0 ? '+' : ''}${g.plusMinus} em ${n1(g.minutes)} min • ${g.sample.label}';
+    final duos = Groups.of(lineups, 2).where((g) => g.seconds >= 180).take(3);
+    final trios = Groups.of(lineups, 3).where((g) => g.seconds >= 180).take(3);
+    return AnalystReply('Melhores duplas:\n${duos.map((g) => '• ${row(g)}').join('\n')}\n\nMelhores trios:\n${trios.map((g) => '• ${row(g)}').join('\n')}');
+  }
+
+  AnalystReply _impact(SeasonAnalysis s, {bool defensive = false}) {
+    final lineups = s.lineups();
+    if (lineups.isEmpty) return const AnalystReply('Para medir impacto em quadra preciso do lance a lance com substituições.');
+    final solos = Groups.of(lineups, 1).where((g) => g.seconds >= 300).toList();
+    if (defensive) {
+      double defRtg(GroupStat g) => g.defPossessions < 1 ? 999 : g.pointsAgainst * 100 / g.defPossessions;
+      solos.sort((a, b) => defRtg(a).compareTo(defRtg(b)));
+      return AnalystReply('Pontos sofridos por 100 posses com cada jogador em quadra (menor é melhor):\n'
+          '${solos.take(5).map((g) => '• ${g.names.single}: ${n1(defRtg(g))} em ${n1(g.minutes)} min • ${g.sample.label}').join('\n')}');
+    }
+    final top = solos..sort((a, b) => b.plusMinus.compareTo(a.plusMinus));
+    return AnalystReply([for (final g in top.take(3)) Groups.impactSentence(lineups, g.keys.single)].whereType<String>().map((e) => '• $e').join('\n'));
   }
 
   AnalystReply _training(SeasonAnalysis s) {

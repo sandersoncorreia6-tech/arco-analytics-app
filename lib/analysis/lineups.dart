@@ -1,4 +1,5 @@
 import '../models/box_score.dart';
+import 'sample_size.dart';
 
 /// Desempenho de um quinteto (combinação de 5 jogadores em quadra).
 class LineupStat {
@@ -20,7 +21,13 @@ class LineupStat {
   double get defRating => defPossessions < 1 ? 0 : pointsAgainst * 100 / defPossessions;
   double get netRating => offRating - defRating;
 
+  /// Jogos em que o quinteto esteve em quadra.
+  int games = 1;
+
+  SampleLevel get sample => SampleSize.of(minutes: minutes, possessions: (offPossessions + defPossessions) / 2, games: games);
+
   void absorb(LineupStat o) {
+    if (o.seconds > 0 && !identical(o, this)) games += o.games;
     seconds += o.seconds;
     pointsFor += o.pointsFor;
     pointsAgainst += o.pointsAgainst;
@@ -114,9 +121,76 @@ class LineupBuilder {
     final all = <String, LineupStat>{};
     for (final list in games) {
       for (final l in list) {
-        all.putIfAbsent(l.id, () => LineupStat(l.keys, l.names)).absorb(l);
+        all.putIfAbsent(l.id, () => LineupStat(l.keys, l.names)..games = 0).absorb(l);
       }
     }
     return all.values.toList()..sort((a, b) => b.seconds.compareTo(a.seconds));
+  }
+}
+
+/// Combinação de jogadores (dupla, trio, quarteto) somada a partir dos quintetos.
+class GroupStat {
+  final List<String> keys;
+  final List<String> names;
+  int seconds = 0;
+  int pointsFor = 0;
+  int pointsAgainst = 0;
+  double offPossessions = 0;
+  double defPossessions = 0;
+  GroupStat(this.keys, this.names);
+
+  double get minutes => seconds / 60;
+  int get plusMinus => pointsFor - pointsAgainst;
+  double get netRating =>
+      (offPossessions < 1 ? 0 : pointsFor * 100 / offPossessions) - (defPossessions < 1 ? 0 : pointsAgainst * 100 / defPossessions);
+  SampleLevel get sample => SampleSize.of(minutes: minutes, possessions: (offPossessions + defPossessions) / 2);
+}
+
+class Groups {
+  /// Todas as combinações de [size] jogadores (1 = individual em quadra).
+  static List<GroupStat> of(List<LineupStat> lineups, int size) {
+    final out = <String, GroupStat>{};
+    for (final l in lineups) {
+      final idx = List.generate(l.keys.length, (i) => i);
+      for (final combo in _combinations(idx, size)) {
+        final keys = [for (final i in combo) l.keys[i]];
+        final g = out.putIfAbsent(keys.join('|'), () => GroupStat(keys, [for (final i in combo) l.names[i]]));
+        g
+          ..seconds += l.seconds
+          ..pointsFor += l.pointsFor
+          ..pointsAgainst += l.pointsAgainst
+          ..offPossessions += l.offPossessions
+          ..defPossessions += l.defPossessions;
+      }
+    }
+    return out.values.toList()..sort((a, b) => b.plusMinus.compareTo(a.plusMinus));
+  }
+
+  static Iterable<List<int>> _combinations(List<int> items, int k, [int start = 0]) sync* {
+    if (k == 0) {
+      yield const [];
+      return;
+    }
+    for (var i = start; i <= items.length - k; i++) {
+      for (final rest in _combinations(items, k - 1, i + 1)) {
+        yield [items[i], ...rest];
+      }
+    }
+  }
+
+  /// Frase com contexto: saldo do jogador em quadra e com quem a diferença foi maior.
+  static String? impactSentence(List<LineupStat> lineups, String playerKey) {
+    final solo = of(lineups, 1).where((g) => g.keys.single == playerKey).firstOrNull;
+    if (solo == null || solo.seconds < 120) return null;
+    final trios = of(lineups, 3).where((g) => g.keys.contains(playerKey) && g.seconds >= 120).toList()
+      ..sort((a, b) => b.plusMinus.compareTo(a.plusMinus));
+    final name = solo.names.single;
+    final base = 'O time teve saldo de ${solo.plusMinus >= 0 ? '+' : ''}${solo.plusMinus} com $name em quadra '
+        'durante ${solo.minutes.toStringAsFixed(0)} minutos';
+    if (trios.isEmpty) return '$base (${solo.sample.label}).';
+    final best = trios.first;
+    final partners = [for (var i = 0; i < best.keys.length; i++) if (best.keys[i] != playerKey) best.names[i]];
+    return '$base. A maior diferença aconteceu quando jogou com ${partners.join(' e ')} '
+        '(${best.plusMinus >= 0 ? '+' : ''}${best.plusMinus} em ${best.minutes.toStringAsFixed(0)} min juntos) • ${solo.sample.label}.';
   }
 }

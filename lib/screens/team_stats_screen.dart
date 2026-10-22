@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../analysis/reports.dart';
+import '../analysis/sample_size.dart';
 import '../analysis/season_analysis.dart';
 import '../services/stats_aggregator.dart';
 import '../state/app_state.dart';
@@ -167,7 +168,8 @@ class _TeamStatsScreenState extends State<TeamStatsScreen> {
                       dense: true,
                       leading: CircleAvatar(radius: 14, child: Text('${i + 1}', style: const TextStyle(fontSize: 12))),
                       title: Text(l.names.join(' – '), style: const TextStyle(fontSize: 13)),
-                      subtitle: Text('${f1(l.minutes)} min • ataque ${f1(l.offRating)} • defesa ${f1(l.defRating)}'),
+                      subtitle: Text('${f1(l.minutes)} min • ataque ${f1(l.offRating)} • defesa ${f1(l.defRating)} • ${l.sample.label}',
+                          style: TextStyle(color: l.sample == SampleLevel.low ? Colors.white38 : null)),
                       trailing: Text('${l.plusMinus >= 0 ? '+' : ''}${l.plusMinus}',
                           style: TextStyle(fontWeight: FontWeight.w900, color: l.plusMinus >= 0 ? Colors.greenAccent : Colors.redAccent)),
                     ),
