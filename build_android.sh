@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
+# Gera o APK localmente. A pasta android/ já vem configurada
+# (permissão INTERNET, applicationId com.arcoanalytics.app, ícone e assinatura).
 set -euo pipefail
-flutter create . --platforms=android --org com.arcoanalytics
-# O Flutter não inclui INTERNET em release por padrão em alguns templates.
-MANIFEST="android/app/src/main/AndroidManifest.xml"
-if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
-  sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
-fi
+cd "$(dirname "$0")"
 flutter pub get
 flutter analyze
+flutter test
 flutter build apk --release
 printf '\nAPK gerado em:\n%s\n' "$(pwd)/build/app/outputs/flutter-apk/app-release.apk"
+if [ ! -f android/key.properties ]; then
+  echo "Aviso: android/key.properties ausente — APK assinado com chave de teste (debug)."
+fi
