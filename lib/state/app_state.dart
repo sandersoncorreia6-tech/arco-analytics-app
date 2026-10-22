@@ -15,6 +15,7 @@ import '../models/player.dart';
 import '../services/fpb_live_service.dart';
 import '../services/lbc_live_service.dart';
 import '../services/coach_schedule_service.dart';
+import '../services/local_game_store.dart';
 
 class AppState extends ChangeNotifier {
   AppState() {
@@ -22,6 +23,7 @@ class AppState extends ChangeNotifier {
     _restoreVideoLinks();
     _restoreFpbCache();
     _restoreLbcCache();
+    _restoreSavedGames();
     syncFpbNow();
     syncLbcNow();
     _fpbTimer = Timer.periodic(const Duration(seconds: 30), (_) => syncFpbNow(silent: true));
@@ -31,6 +33,7 @@ class AppState extends ChangeNotifier {
   final FpbLiveService _fpbService = FpbLiveService();
   final LbcLiveService _lbcService = LbcLiveService();
   final CoachScheduleService _coachScheduleService = const CoachScheduleService();
+  final LocalGameStore _localGameStore = LocalGameStore();
   final TeamContext teamContext = TeamContext.tupaMonstrinho2026;
   Timer? _fpbTimer;
   Timer? _lbcTimer;
@@ -69,6 +72,17 @@ class AppState extends ChangeNotifier {
 
 
 
+  Future<void> _restoreSavedGames() async {
+    final saved = await _localGameStore.load();
+    games.removeWhere((game) => game.source != 'mock');
+    games.insertAll(0, saved.where((game) => game.source != 'mock'));
+    notifyListeners();
+  }
+
+  Future<void> _persistRealGames() async {
+    final realGames = games.where((game) => game.source != 'mock').toList();
+    await _localGameStore.save(realGames);
+  }
   Future<void> syncFpbNow({bool silent = false}) async {
     if (fpbSyncing) return;
     fpbSyncing = true;
@@ -500,6 +514,7 @@ class AppState extends ChangeNotifier {
       events: List<PlayEvent>.from(live.events),
     );
     games.insert(0, game);
+    unawaited(_persistRealGames());
     activeGame = null;
     notifyListeners();
     return game;
