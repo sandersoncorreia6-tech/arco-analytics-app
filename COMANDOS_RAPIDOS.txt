@@ -1,6 +1,6 @@
 ANDROID — APK
-flutter pub get
-flutter build apk --release
+./build_android.sh
+(ou: flutter pub get && flutter build apk --release)
 
 ANDROID — AAB
 flutter pub get
@@ -13,3 +13,7 @@ flutter build web --release
 DESENVOLVIMENTO
 flutter pub get
 flutter run
+
+TESTES
+flutter analyze
+flutter test

@@ -1,4 +1,4 @@
-# ARCO v0.5 — Treinador, FPB, LBC e vídeos
+# ARCO — Treinador, FPB, LBC e vídeos
 
 ## Conta demo
 A versão inclui uma sessão LOCAL de demonstração para:
@@ -22,6 +22,8 @@ Filtros previstos/implementados:
 - categoria
 - busca por equipe
 - status conforme informação recebida da fonte
+- somente jogos da minha equipe (Tupã / Monstrinho, sem diferenciar acentos)
+- somente jogos ao vivo
 
 A arquitetura usa adaptadores separados. Se uma fonte mudar de HTML para API/feed oficial, basta trocar o serviço daquela liga.
 

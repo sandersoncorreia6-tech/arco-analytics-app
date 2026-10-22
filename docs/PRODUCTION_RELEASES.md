@@ -2,7 +2,7 @@
 
 ## Identidade fixa do Android
 - Application ID: `com.arcoanalytics.app`
-- Versão atual: `0.5.0+5`
+- Versão atual: `0.6.0+6`
 - Alias da chave de produção: `arco-prod`
 
 Nunca altere o Application ID depois de distribuir o app.
@@ -20,12 +20,24 @@ Crie:
 A chave JKS NÃO deve ser enviada ao repositório.
 
 ## Próxima versão
-Para v0.6.0, altere apenas em `pubspec.yaml`:
-`version: 0.6.0+6`
+Para v0.7.0, altere em `pubspec.yaml` (e em `lib/config/app_config.dart`):
+`version: 0.7.0+7`
 
 O número depois de `+` deve sempre aumentar.
 
 ## Builds
-- Android: `.github/workflows/android-release.yml`
-- Web/PWA: `.github/workflows/web-build.yml`
-- GitHub Pages: `.github/workflows/deploy-pages.yml`
+- Android, Web/PWA, Windows e iOS: `.github/workflows/build.yml` (ARCO Build)
+- GitHub Pages: `.github/workflows/deploy-pages.yml` (manual)
+
+Sem os secrets, o APK é assinado com chave de teste (artefato `...-teste`). Ele não instala
+por cima de um APK assinado com a chave oficial (e vice-versa): desinstale antes.
+
+## Assinatura local
+Crie `android/key.properties` (nunca commitar):
+```
+storePassword=...
+keyPassword=...
+keyAlias=arco-prod
+storeFile=arco-upload-keystore.jks
+```
+e coloque a chave em `android/app/arco-upload-keystore.jks`.

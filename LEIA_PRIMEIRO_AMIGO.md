@@ -40,9 +40,11 @@ flutter run
 ## 4. Gerar APK
 
 ```bash
-flutter pub get
-flutter build apk --release
+./build_android.sh
 ```
+
+A pasta `android/` já vem pronta (permissão de internet, ícone, applicationId e
+assinatura). Não rode `flutter create` por cima dela.
 
 Saída esperada:
 
@@ -89,16 +91,16 @@ Os workflows ficam em:
 
 `.github/workflows/`
 
-O principal de Android é:
+O principal é:
 
-`android-release.yml`
+`build.yml` (ARCO Build)
 
 Ele gera:
 
 - APK
 - AAB
 
-Também há workflows para Web/PWA quando presentes na pasta.
+Ele também gera Web/PWA (e Windows/iOS na main ou manualmente). O deploy no GitHub Pages é `deploy-pages.yml`.
 
 ## 9. Web/PWA e integrações
 
@@ -129,7 +131,7 @@ Não publicar no repositório:
 
 ## 12. Versão
 
-Pacote baseado no ARCO Analytics v0.5.0.
+ARCO Analytics v0.6.0 — veja o CHANGELOG para as correções da transmissão FPB/LBC.
 
 Objetivo do produto:
 
