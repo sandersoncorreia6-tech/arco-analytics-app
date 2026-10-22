@@ -4,6 +4,7 @@ import '../services/stats_aggregator.dart';
 import '../state/app_state.dart';
 import '../widgets/league_widgets.dart';
 import '../widgets/stats_widgets.dart';
+import 'analyst_screen.dart';
 import 'box_score_screen.dart';
 import 'player_stats_screen.dart';
 import 'team_stats_screen.dart';
@@ -71,6 +72,11 @@ class _StatsHubScreenState extends State<StatsHubScreen> {
                 style: const TextStyle(color: Colors.white60),
               ),
             ]),
+          ),
+          IconButton(
+            tooltip: 'Analista ARCO',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AnalystScreen())),
+            icon: const Icon(Icons.psychology_alt_outlined),
           ),
           IconButton(
             tooltip: 'Importar jogo pelo link',

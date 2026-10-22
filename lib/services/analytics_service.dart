@@ -44,13 +44,13 @@ class AnalyticsService {
     return onNet - offNet;
   }
 
+  /// Índice de desempenho por jogo (Game Score de Hollinger): resume a
+  /// produção do jogador em um número comparável, sem teto artificial.
+  /// ~10 = jogo médio; 15+ = muito bom; 20+ = excelente.
   static double impactScore(Player p) {
-    final efficiency = trueShooting(points: p.points, fga: p.fga, fta: p.fta);
-    final creation = (p.assists * 5.0) - (p.turnovers * 3.0);
-    final defense = (p.steals * 5.5) + (p.blocks * 4.0) + (p.rebounds * 1.3);
-    final impact = onOffNet(p) * 1.2;
-    final raw = 45 + efficiency * 0.25 + creation * 0.7 + defense * 0.35 + impact;
-    return raw.clamp(0, 100).toDouble();
+    final g = p.games <= 0 ? 1 : p.games;
+    final fgm = p.fgm / g, fga = p.fga / g, ftm = p.ftm / g, fta = p.fta / g;
+    return p.points + 0.4 * fgm - 0.7 * fga - 0.4 * (fta - ftm) + 0.5 * p.rebounds + p.steals + 0.7 * p.assists + 0.7 * p.blocks - p.turnovers;
   }
 
   static String sampleConfidence(int possessions) {

@@ -3,6 +3,10 @@ class Player {
   final String name;
   final String position;
   final int number;
+
+  /// Jogos que compõem os arremessos (fgm/fga/ftm/fta são totais desses jogos;
+  /// pontos, rebotes etc. já são médias por jogo).
+  final int games;
   final int points;
   final int assists;
   final int rebounds;
@@ -25,6 +29,7 @@ class Player {
     required this.name,
     required this.position,
     required this.number,
+    this.games = 1,
     this.points = 0,
     this.assists = 0,
     this.rebounds = 0,
@@ -48,6 +53,7 @@ class Player {
         'name': name,
         'position': position,
         'number': number,
+        'games': games,
         'points': points,
         'assists': assists,
         'rebounds': rebounds,
@@ -71,6 +77,7 @@ class Player {
         name: m['name'] as String,
         position: (m['position'] as String?) ?? 'PG',
         number: (m['number'] as num?)?.toInt() ?? 0,
+        games: (m['games'] as num?)?.toInt() ?? 1,
         points: (m['points'] as num?)?.toInt() ?? 0,
         assists: (m['assists'] as num?)?.toInt() ?? 0,
         rebounds: (m['rebounds'] as num?)?.toInt() ?? 0,

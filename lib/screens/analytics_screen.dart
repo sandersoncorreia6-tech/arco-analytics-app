@@ -34,7 +34,7 @@ class AnalyticsScreen extends StatelessWidget {
           final team = mine.isEmpty ? null : mine.first;
           return SectionCard(
             title: 'Mapa de arremessos',
-            trailing: Text(team == null ? 'Amostra demo' : '${team.name} • ${team.games} jogos', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            subtitle: team == null ? 'Amostra demo — importe jogos na aba Stats para ver o mapa real' : '${team.name} • ${team.games} jogos',
             child: CourtShotChart(shots: team?.shots ?? MockRepository.shots),
           );
         }),

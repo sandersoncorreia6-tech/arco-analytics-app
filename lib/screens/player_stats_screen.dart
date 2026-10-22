@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../analysis/season_analysis.dart';
 import '../state/app_state.dart';
 import '../widgets/court_shot_chart.dart';
 import '../widgets/section_card.dart';
@@ -18,6 +19,7 @@ class PlayerStatsScreen extends StatelessWidget {
     final p = state.teamSeasons[teamKey]?.players[playerKey];
     if (p == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('Jogador sem estatísticas importadas.')));
     final l = p.totals;
+    final team = state.teamSeasons[teamKey];
     return Scaffold(
       appBar: AppBar(title: Text(p.name)),
       body: ListView(padding: const EdgeInsets.all(14), children: [
@@ -56,6 +58,26 @@ class PlayerStatsScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SectionCard(
+          title: 'Avançadas',
+          child: StatTiles([
+            ('AST/ERR', l.tov == 0 ? '${l.ast}' : (l.ast / l.tov).toStringAsFixed(1)),
+            if (team != null && usageRate(p, team) != null) ('USG%', pct(usageRate(p, team)!)),
+            ('PTS/ARR', l.fga + 0.44 * l.fta == 0 ? '-' : (l.points / (l.fga + 0.44 * l.fta)).toStringAsFixed(2)),
+            ('+/-', '${l.plusMinus >= 0 ? '+' : ''}${l.plusMinus}'),
+            ('REB OF', f1(p.perGame(l.oreb))),
+            ('FLT', f1(p.perGame(l.pf))),
+          ]),
+        ),
+        if (p.log.length >= 2) ...[
+          const SizedBox(height: 12),
+          SectionCard(
+            title: 'Evolução (pontos por jogo)',
+            subtitle: 'Últimos ${p.log.length > 10 ? 10 : p.log.length} jogos • média da temporada ${f1(p.ppg)}',
+            child: _EvolutionBars(values: [for (final e in (p.log.length > 10 ? p.log.sublist(p.log.length - 10) : p.log)) e.box.stats.points]),
+          ),
+        ],
+        const SizedBox(height: 12),
+        SectionCard(
           title: 'Mapa de arremessos',
           child: p.shots.isEmpty
               ? const Text('Sem posições de arremesso registradas.', style: TextStyle(color: Colors.white60))
@@ -78,6 +100,33 @@ class PlayerStatsScreen extends StatelessWidget {
               ),
           ]),
         ),
+      ]),
+    );
+  }
+}
+
+class _EvolutionBars extends StatelessWidget {
+  final List<int> values;
+  const _EvolutionBars({required this.values});
+
+  @override
+  Widget build(BuildContext context) {
+    final max = values.fold<int>(1, (m, v) => v > m ? v : m);
+    final color = Theme.of(context).colorScheme.primary;
+    return SizedBox(
+      height: 120,
+      child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        for (final v in values)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+                Text('$v', style: const TextStyle(fontSize: 11)),
+                const SizedBox(height: 2),
+                Container(height: 90 * v / max + 2, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
+              ]),
+            ),
+          ),
       ]),
     );
   }

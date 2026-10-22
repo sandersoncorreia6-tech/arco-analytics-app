@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../analysis/game_analysis.dart';
+import '../analysis/reports.dart';
 import '../models/box_score.dart';
 import '../state/app_state.dart';
 import '../widgets/court_shot_chart.dart';
 import '../widgets/league_widgets.dart';
 import '../widgets/stats_widgets.dart';
+import 'report_screen.dart';
 
 /// Estatística completa de uma partida: placar por período, box score das
 /// duas equipes, mapa de arremessos e lance a lance.
@@ -23,6 +26,14 @@ class BoxScoreScreen extends StatelessWidget {
         appBar: AppBar(
           title: Text('${g.home.code.isNotEmpty ? g.home.code : g.home.name} × ${g.away.code.isNotEmpty ? g.away.code : g.away.name}'),
           actions: [
+            IconButton(
+              tooltip: 'Análise pós-jogo',
+              icon: const Icon(Icons.psychology_alt_outlined),
+              onPressed: () {
+                final side = state.coach.isMyTeam(g.away.name) && !state.coach.isMyTeam(g.home.name) ? 2 : 1;
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReportScreen(report: Reports.postGame(GameAnalysis(g, side)))));
+              },
+            ),
             IconButton(tooltip: 'Abrir no site', onPressed: () => openExternal(context, g.sourceUrl), icon: const Icon(Icons.open_in_new)),
           ],
           bottom: TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: [

@@ -10,6 +10,7 @@ import '../models/live_game_session.dart';
 import '../models/play_event.dart';
 import '../models/player.dart';
 import '../models/box_score.dart';
+import '../analysis/scout_adapter.dart';
 import '../services/fiba_livestats.dart';
 import '../services/league_sync_service.dart';
 import '../services/source_fetcher.dart';
@@ -34,6 +35,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool loggedIn = false;
   CoachProfile coach = CoachProfile.adrianoMiao;
   final Map<String, String> videoLinks = {};
+
+  /// Segundo do vídeo em que começa o scout de cada jogo (chave = [scoutVideoKey]).
+  final Map<String, int> videoOffsets = {};
+
+  static String scoutVideoKey(Game g) => 'scout_${g.date.millisecondsSinceEpoch}';
 
   final List<Player> players = [...MockRepository.players];
   final List<Game> games = [...MockRepository.games];
@@ -163,7 +169,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // ---------------------------------------------------------------- Estatísticas
 
   /// Temporada de cada equipe (somatório de todas as partidas importadas).
-  Map<String, TeamSeason> get teamSeasons => _seasons ??= StatsAggregator.build(boxScores.values);
+  Map<String, TeamSeason> get teamSeasons => _seasons ??= StatsAggregator.build(analysisGames);
+
+  /// Jogos usados nas análises: estatística online + jogos do Scout ao vivo,
+  /// do mais antigo para o mais recente.
+  List<GameBoxScore> get analysisGames {
+    final scouted = [
+      for (final g in games)
+        if (g.events.isNotEmpty) ScoutAdapter.toBoxScore(g, teamName: coach.club, roster: players),
+    ];
+    final online = boxScores.values.toList()..sort((a, b) => a.matchId.compareTo(b.matchId));
+    return [...online, ...scouted]..sort((a, b) => a.fetchedAt.compareTo(b.fetchedAt));
+  }
 
   /// Equipes do treinador logado (ex.: todas as categorias do Tupã).
   List<TeamSeason> get myTeamSeasons => teamSeasons.values.where((t) => coach.isMyTeam(t.name)).toList()
@@ -172,7 +189,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<GameBoxScore> get boxScoreList => boxScores.values.toList()
     ..sort((a, b) {
       if (a.isLive != b.isLive) return a.isLive ? -1 : 1;
-      return int.parse(b.matchId).compareTo(int.parse(a.matchId));
+      return (int.tryParse(b.matchId) ?? 0).compareTo(int.tryParse(a.matchId) ?? 0);
     });
 
   bool _registerMatches(Iterable<String> ids, String league) {
@@ -266,6 +283,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             name: p.name,
             position: p.position.isEmpty ? '-' : p.position,
             number: int.tryParse(p.number) ?? 0,
+            games: p.games,
             points: p.ppg.round(),
             assists: p.apg.round(),
             rebounds: p.rpg.round(),
@@ -381,6 +399,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // ---------------------------------------------------------------- Vídeos
 
   void _restoreVideoLinks(SharedPreferences prefs) {
+    final offsets = prefs.getString('game_video_offsets_v1');
+    if (offsets != null) {
+      try {
+        videoOffsets.addAll((jsonDecode(offsets) as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt())));
+      } catch (_) {}
+    }
     final raw = prefs.getString('game_video_links_v1');
     if (raw == null) return;
     try {
@@ -389,6 +413,35 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         ..clear()
         ..addAll(map.map((k, v) => MapEntry(k, v.toString())));
     } catch (_) {}
+  }
+
+  Future<void> setScoutVideo(Game g, String url, int offsetSeconds) async {
+    final key = scoutVideoKey(g);
+    videoOffsets[key] = offsetSeconds;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('game_video_offsets_v1', jsonEncode(videoOffsets));
+    await setVideoLink(key, url);
+  }
+
+  /// Link do vídeo posicionado no momento de uma ação do scout.
+  String? videoAtEvent(Game g, PlayEvent e) {
+    final url = videoLinks[scoutVideoKey(g)];
+    if (url == null || url.isEmpty) return null;
+    final start = g.date; // início do scout (= início do jogo no vídeo + offset)
+    final seconds = (videoOffsets[scoutVideoKey(g)] ?? 0) + e.timestamp.difference(start).inSeconds;
+    return videoUrlAt(url, seconds < 0 ? 0 : seconds);
+  }
+
+  /// YouTube aceita `t=123s`; outros players aceitam o fragmento `#t=123`.
+  static String videoUrlAt(String url, int seconds) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return url;
+    final host = uri.host.toLowerCase();
+    if (host.contains('youtu')) {
+      final q = Map<String, String>.from(uri.queryParameters)..['t'] = '${seconds}s';
+      return uri.replace(queryParameters: q).toString();
+    }
+    return uri.replace(fragment: 't=$seconds').toString();
   }
 
   Future<void> setVideoLink(String gameId, String url) async {
@@ -430,6 +483,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _saveTeam() async {
+    _seasons = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_playersKey, jsonEncode([for (final p in players) p.toJson()]));
     await prefs.setString(_gamesKey, jsonEncode([for (final g in games) g.toJson()]));
@@ -459,6 +513,21 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       position: position,
       number: number,
     ));
+    notifyListeners();
+    _saveTeam();
+  }
+
+  /// `true` enquanto o elenco é o de demonstração (nenhum jogador real cadastrado ou importado).
+  bool get demoRoster => players.isNotEmpty && players.every((p) => MockRepository.players.any((m) => m.id == p.id));
+
+  void removePlayer(String id) {
+    players.removeWhere((p) => p.id == id);
+    notifyListeners();
+    _saveTeam();
+  }
+
+  void clearDemoRoster() {
+    players.removeWhere((p) => MockRepository.players.any((m) => m.id == p.id));
     notifyListeners();
     _saveTeam();
   }
@@ -505,9 +574,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _liveChanged();
   }
 
+  /// Contexto tático aplicado à próxima ação registrada no scout.
+  String? pendingTag;
+
+  void setPendingTag(String? tag) {
+    pendingTag = pendingTag == tag ? null : tag;
+    notifyListeners();
+  }
+
   void addEvent(PlayEventType type, {String? playerId}) {
     final game = activeGame;
     if (game == null || game.finished) return;
+    final tag = pendingTag;
+    pendingTag = null;
     final id = playerId ?? game.selectedPlayerId;
 
     if (type == PlayEventType.opponentOne ||
@@ -515,7 +594,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         type == PlayEventType.opponentThree) {
       final points = type == PlayEventType.opponentOne ? 1 : (type == PlayEventType.opponentTwo ? 2 : 3);
       game.opponentScore += points;
-      game.events.add(PlayEvent(type: type, period: game.period, timestamp: DateTime.now(), lineupIds: List<String>.from(game.lineupIds)));
+      game.events.add(PlayEvent(type: type, period: game.period, timestamp: DateTime.now(), lineupIds: List<String>.from(game.lineupIds), tag: tag));
       _liveChanged();
       return;
     }
@@ -567,7 +646,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       case PlayEventType.opponentThree:
         break;
     }
-    game.events.add(PlayEvent(type: type, playerId: id, period: game.period, timestamp: DateTime.now(), lineupIds: List<String>.from(game.lineupIds)));
+    game.events.add(PlayEvent(type: type, playerId: id, period: game.period, timestamp: DateTime.now(), lineupIds: List<String>.from(game.lineupIds), tag: tag));
     _liveChanged();
   }
 
@@ -678,6 +757,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     );
     games.insert(0, game);
     activeGame = null;
+    _seasons = null;
     notifyListeners();
     _saveTeam();
     return game;

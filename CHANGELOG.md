@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.8.0+8 — Analista ARCO, relatórios e base da nuvem
+### Novo
+- **Analista ARCO** (local, offline): responde perguntas do treinador ("de onde erramos?",
+  "por que perdemos?", "e se tivéssemos acertado os lances livres?", "o que treinar?",
+  quartos, formações, destaques, comparação de jogos, jogador e adversário pelo nome).
+- Simulações "e se": lances livres a 75%, erros iguais aos do adversário, rebotes ofensivos
+  cedidos e bolas de 3 — dizendo se o resultado mudaria.
+- Fator decisivo do jogo (four factors com pesos), pior/melhor quarto, pontos sofridos após
+  erros, zonas fracas, destaques e plano de treino.
+- Temporada: vitórias × derrotas, quarto em que o time cai, lado da quadra nas bolas de 3,
+  derrotas que viraram por lances livres, jogadores em alta/queda.
+- Quintetos reconstruídos pelas substituições (minutos, saldo, ataque/defesa por 100 posses).
+- Relatórios pós-jogo, pré-jogo (adversário) e da temporada com PDF e compartilhamento
+  (WhatsApp/e-mail).
+- Avançadas do atleta: USG%, AST/ERR, pontos por arremesso, +/-, gráfico de evolução.
+- Vídeo sincronizado com o scout: cada ação abre o vídeo no segundo exato; clipes por ação,
+  jogador, contexto (transição, contra-ataque, pick-and-roll, isolamento) e quarto.
+- Scout ao vivo: marcação de contexto da jogada; jogos do scout entram nas análises.
+- Supabase: esquema multi-clube com RLS testado (clubes isolados, papéis, atletas, jogos,
+  scout offline idempotente, vídeos, clipes, relatórios com link privado, planos, teste de
+  14 dias, bloqueio) — ver `docs/SUPABASE_SETUP.md`.
+
+### Corrigido
+- Índice do jogador saturava em 100: agora é o Game Score por jogo, sem teto.
+- Elenco de demonstração agora é sinalizado, com opção de remover.
+- Título do mapa de arremessos quebrava ao lado de "Amostra demo".
+
 ## 0.7.0+7 — Estatísticas completas (aba Estatística/Online)
 ### Novo
 - Importação da estatística online no padrão FIBA LiveStats: box score de todas as equipes e

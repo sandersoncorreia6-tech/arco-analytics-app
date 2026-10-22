@@ -84,6 +84,14 @@ class LiveScoutScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           SectionCard(
+            title: 'Contexto da próxima ação (opcional)',
+            child: Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final t in PlayEvent.tags)
+                ChoiceChip(label: Text(t), selected: state.pendingTag == t, onSelected: (_) => state.setPendingTag(t)),
+            ]),
+          ),
+          const SizedBox(height: 10),
+          SectionCard(
             title: 'Arremesso',
             child: GridView.count(
               crossAxisCount: 2,

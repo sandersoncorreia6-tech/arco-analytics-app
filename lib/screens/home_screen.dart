@@ -9,6 +9,7 @@ import '../widgets/section_card.dart';
 import '../models/league_game.dart';
 import '../state/league_feed.dart';
 import '../widgets/league_widgets.dart';
+import 'analyst_screen.dart';
 import 'game_detail_screen.dart';
 import 'games_screen.dart';
 import 'live_scout_screen.dart';
@@ -67,6 +68,35 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: 4),
         Text('Insights de ${state.coach.club}: o que o treinador precisa saber hoje.', style: const TextStyle(color: Colors.white60)),
         const SizedBox(height: 18),
+        Card(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: .14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AnalystScreen())),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Row(children: [
+                  Icon(Icons.psychology_alt_outlined),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('Analista ARCO', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16))),
+                  Icon(Icons.chevron_right),
+                ]),
+                const SizedBox(height: 4),
+                const Text('Pergunte sobre a sua equipe: onde erra, por que perdeu, o que treinar.', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  for (final q in const ['De onde minha equipe mais erra?', 'E se tivéssemos acertado os lances livres?', 'O que treinar esta semana?'])
+                    ActionChip(
+                      label: Text(q, style: const TextStyle(fontSize: 12)),
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AnalystScreen(initialQuestion: q))),
+                    ),
+                ]),
+              ]),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,

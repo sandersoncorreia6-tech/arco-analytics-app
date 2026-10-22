@@ -160,6 +160,9 @@ class ShotAttempt {
 class PlayerBox {
   /// Identificador do jogador dentro da equipe (nome normalizado).
   final String key;
+
+  /// Número de cadastro na súmula eletrônica (liga o box score ao lance a lance).
+  final int pno;
   final String name;
   final String number;
   final String position;
@@ -169,6 +172,7 @@ class PlayerBox {
   const PlayerBox({
     required this.key,
     required this.name,
+    this.pno = 0,
     this.number = '',
     this.position = '',
     this.starter = false,
@@ -177,10 +181,11 @@ class PlayerBox {
 
   bool get played => stats.seconds > 0 || stats.fga > 0 || stats.fta > 0 || stats.reb > 0 || stats.points > 0;
 
-  Map<String, dynamic> toJson() => {'k': key, 'n': name, 'no': number, 'pos': position, 'st': starter, 's': stats.toJson()};
+  Map<String, dynamic> toJson() => {'k': key, 'pno': pno, 'n': name, 'no': number, 'pos': position, 'st': starter, 's': stats.toJson()};
 
   factory PlayerBox.fromJson(Map<String, dynamic> m) => PlayerBox(
         key: m['k'] as String,
+        pno: (m['pno'] as num?)?.toInt() ?? 0,
         name: m['n'] as String,
         number: (m['no'] as String?) ?? '',
         position: (m['pos'] as String?) ?? '',
@@ -236,6 +241,7 @@ class PlayAction {
   final int period;
   final String clock;
   final int team;
+  final int pno;
   final String player;
   final String type;
   final String subType;
@@ -246,12 +252,22 @@ class PlayAction {
     required this.period,
     required this.clock,
     required this.team,
+    this.pno = 0,
     required this.player,
     required this.type,
     this.subType = '',
     this.success = false,
     this.score = '',
   });
+
+  /// Segundos restantes no período ("09:45" → 585).
+  int get clockSeconds {
+    final m = RegExp(r'^(\d+):(\d{1,2})').firstMatch(clock);
+    return m == null ? 0 : int.parse(m.group(1)!) * 60 + int.parse(m.group(2)!);
+  }
+
+  bool get isScoring => success && (type == '2pt' || type == '3pt' || type == 'freethrow');
+  int get points => !isScoring ? 0 : (type == '3pt' ? 3 : (type == '2pt' ? 2 : 1));
 
   /// Descrição em português.
   String get label {
@@ -290,12 +306,13 @@ class PlayAction {
     }
   }
 
-  Map<String, dynamic> toJson() => {'p': period, 'c': clock, 't': team, 'pl': player, 'ty': type, 'st': subType, 'ok': success, 's': score};
+  Map<String, dynamic> toJson() => {'p': period, 'c': clock, 't': team, 'pno': pno, 'pl': player, 'ty': type, 'st': subType, 'ok': success, 's': score};
 
   factory PlayAction.fromJson(Map<String, dynamic> m) => PlayAction(
         period: (m['p'] as num?)?.toInt() ?? 1,
         clock: (m['c'] as String?) ?? '',
         team: (m['t'] as num?)?.toInt() ?? 0,
+        pno: (m['pno'] as num?)?.toInt() ?? 0,
         player: (m['pl'] as String?) ?? '',
         type: (m['ty'] as String?) ?? '',
         subType: (m['st'] as String?) ?? '',

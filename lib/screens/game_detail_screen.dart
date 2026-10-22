@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import '../analysis/game_analysis.dart';
+import '../analysis/reports.dart';
+import '../analysis/scout_adapter.dart';
 import '../models/game.dart';
 import '../services/analytics_service.dart';
 import '../state/app_state.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/section_card.dart';
+import 'report_screen.dart';
+import 'scout_video_section.dart';
 
 class GameDetailScreen extends StatelessWidget {
   final Game game;
@@ -30,7 +35,17 @@ class GameDetailScreen extends StatelessWidget {
     if (reasons.isEmpty) reasons.add('ℹ Jogo equilibrado nos indicadores básicos; amplie a amostra para ganhar confiança.');
 
     return Scaffold(
-      appBar: AppBar(title: Text('vs ${game.opponent}')),
+      appBar: AppBar(title: Text('vs ${game.opponent}'), actions: [
+        IconButton(
+          tooltip: 'Relatório pós-jogo',
+          icon: const Icon(Icons.description_outlined),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => ReportScreen(
+              report: Reports.postGame(GameAnalysis(ScoutAdapter.toBoxScore(game, teamName: state.coach.club, roster: state.players), 1)),
+            ),
+          )),
+        ),
+      ]),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
@@ -42,6 +57,17 @@ class GameDetailScreen extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ReportScreen(
+                report: Reports.postGame(GameAnalysis(ScoutAdapter.toBoxScore(game, teamName: state.coach.club, roster: state.players), 1)),
+              ),
+            )),
+            icon: const Icon(Icons.psychology_alt_outlined),
+            label: const Text('Relatório pós-jogo do Analista ARCO'),
+          ),
+          if (game.events.isNotEmpty) ...[const SizedBox(height: 12), ScoutVideoSection(game: game)],
           const SizedBox(height: 20),
           GridView.count(
             crossAxisCount: 2,

@@ -2,33 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../analysis/shot_zones.dart';
 import '../models/box_score.dart';
 
-/// Zonas de arremesso usadas no resumo do mapa.
-enum ShotZone { paint, midRange, corner3, aboveBreak3 }
-
-extension ShotZoneLabel on ShotZone {
-  String get label => switch (this) {
-        ShotZone.paint => 'Garrafão',
-        ShotZone.midRange => 'Meia distância',
-        ShotZone.corner3 => '3 da zona morta',
-        ShotZone.aboveBreak3 => '3 frontal',
-      };
-}
-
-// Medidas FIBA em metros, meia quadra 15 × 14 m, cesta no topo.
-const _courtW = 15.0;
-const _courtH = 14.0;
-const _basketY = 1.575;
-const _keyW = 4.9;
-const _keyH = 5.8;
-
-ShotZone zoneOf(ShotAttempt s) {
-  final x = s.x * _courtW, y = s.y * _courtH;
-  if (s.isThree) return y < 3.0 ? ShotZone.corner3 : ShotZone.aboveBreak3;
-  final inKey = (x - _courtW / 2).abs() <= _keyW / 2 && y <= _keyH;
-  return inKey ? ShotZone.paint : ShotZone.midRange;
-}
+export '../analysis/shot_zones.dart';
 
 /// Mapa de arremessos: ● verde = cesta, ✕ vermelho = erro.
 class CourtShotChart extends StatelessWidget {
@@ -41,7 +18,7 @@ class CourtShotChart extends StatelessWidget {
     final made = shots.where((s) => s.made).length;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       AspectRatio(
-        aspectRatio: _courtW / _courtH,
+        aspectRatio: courtWidthM / courtHeightM,
         child: CustomPaint(painter: _CourtPainter(shots, Theme.of(context).colorScheme.primary)),
       ),
       const SizedBox(height: 8),
@@ -107,7 +84,7 @@ class _CourtPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final k = size.width / _courtW;
+    final k = size.width / courtWidthM;
     Offset p(double x, double y) => Offset(x * k, y * k);
     final line = Paint()
       ..color = Colors.white30
@@ -119,29 +96,29 @@ class _CourtPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), line);
 
     // Garrafão e lance livre.
-    final keyRect = Rect.fromLTWH((_courtW - _keyW) / 2 * k, 0, _keyW * k, _keyH * k);
+    final keyRect = Rect.fromLTWH((courtWidthM - keyWidthM) / 2 * k, 0, keyWidthM * k, keyHeightM * k);
     canvas.drawRect(keyRect, Paint()..color = accent.withValues(alpha: .07));
     canvas.drawRect(keyRect, line);
-    canvas.drawArc(Rect.fromCircle(center: p(_courtW / 2, _keyH), radius: 1.8 * k), 0, math.pi, false, line);
+    canvas.drawArc(Rect.fromCircle(center: p(courtWidthM / 2, keyHeightM), radius: 1.8 * k), 0, math.pi, false, line);
 
     // Linha de 3: retas nas zonas mortas (0,9 m da lateral) + arco de 6,75 m.
     const r3 = 6.75;
     const side = 0.9;
-    final dx = _courtW / 2 - side;
+    final dx = courtWidthM / 2 - side;
     final dy = math.sqrt(r3 * r3 - dx * dx);
-    canvas.drawLine(p(side, 0), p(side, _basketY + dy), line);
-    canvas.drawLine(p(_courtW - side, 0), p(_courtW - side, _basketY + dy), line);
+    canvas.drawLine(p(side, 0), p(side, basketYM + dy), line);
+    canvas.drawLine(p(courtWidthM - side, 0), p(courtWidthM - side, basketYM + dy), line);
     final start = math.atan2(dy, dx);
-    canvas.drawArc(Rect.fromCircle(center: p(_courtW / 2, _basketY), radius: r3 * k), start, math.pi - 2 * start, false, line);
+    canvas.drawArc(Rect.fromCircle(center: p(courtWidthM / 2, basketYM), radius: r3 * k), start, math.pi - 2 * start, false, line);
 
     // Tabela, aro e área restrita.
-    canvas.drawLine(p(_courtW / 2 - .9, 1.2), p(_courtW / 2 + .9, 1.2), line..strokeWidth = 2);
+    canvas.drawLine(p(courtWidthM / 2 - .9, 1.2), p(courtWidthM / 2 + .9, 1.2), line..strokeWidth = 2);
     line.strokeWidth = 1.4;
-    canvas.drawCircle(p(_courtW / 2, _basketY), .225 * k, line);
-    canvas.drawArc(Rect.fromCircle(center: p(_courtW / 2, _basketY), radius: 1.25 * k), 0, math.pi, false, line);
+    canvas.drawCircle(p(courtWidthM / 2, basketYM), .225 * k, line);
+    canvas.drawArc(Rect.fromCircle(center: p(courtWidthM / 2, basketYM), radius: 1.25 * k), 0, math.pi, false, line);
 
     // Meio da quadra.
-    canvas.drawArc(Rect.fromCircle(center: p(_courtW / 2, _courtH), radius: 1.8 * k), math.pi, math.pi, false, line);
+    canvas.drawArc(Rect.fromCircle(center: p(courtWidthM / 2, courtHeightM), radius: 1.8 * k), math.pi, math.pi, false, line);
 
     final r = math.max(3.0, size.width / 95);
     final made = Paint()..color = Colors.greenAccent.withValues(alpha: .85);

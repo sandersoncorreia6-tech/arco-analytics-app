@@ -67,7 +67,8 @@ class FibaLiveStats {
             period: _int(a['period']),
             clock: (a['gt'] ?? a['clock'] ?? '').toString(),
             team: _int(a['tno']),
-            player: (a['player'] ?? '').toString().trim(),
+            pno: _int(a['pno']),
+            player: _title((a['player'] ?? '').toString().trim()),
             type: (a['actionType'] ?? '').toString(),
             subType: (a['subType'] ?? '').toString(),
             success: _int(a['success']) == 1,
@@ -170,12 +171,14 @@ class FibaLiveStats {
     final players = <PlayerBox>[];
     final pl = t['pl'];
     if (pl is Map) {
-      for (final raw in pl.values) {
+      for (final entry in pl.entries) {
+        final raw = entry.value;
         if (raw is! Map) continue;
         final p = raw.cast<String, dynamic>();
         final name = _playerName(p);
         players.add(PlayerBox(
           key: ScheduleParser.normalize(name),
+          pno: int.tryParse(entry.key.toString()) ?? _int(p['pno']),
           name: name,
           number: (p['shirtNumber'] ?? '').toString(),
           position: (p['playingPosition'] ?? '').toString(),

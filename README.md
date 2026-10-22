@@ -3,7 +3,18 @@
 Plataforma Flutter/Dart de inteligência estatística para treinadores de basquete.
 **Dado → Contexto → Insight → Decisão**
 
-Versão: `0.7.0+7` • Application ID Android: `com.arcoanalytics.app` (não alterar)
+Versão: `0.8.0+8` • Application ID Android: `com.arcoanalytics.app` (não alterar)
+
+## Novo na 0.8: Analista ARCO
+
+O treinador pergunta e o ARCO responde com números: onde o time mais erra, por que perdeu,
+"e se tivéssemos acertado os lances livres", em qual quarto cai, melhor formação, o que
+treinar, como joga o próximo adversário. Relatórios pós-jogo, pré-jogo e da temporada saem
+em PDF ou direto no WhatsApp. O vídeo do jogo fica sincronizado com o scout (cada ação abre
+no segundo exato) e gera clipes por filtro.
+
+Nuvem: o banco Supabase está pronto e testado (`supabase/`); falta criar o projeto e
+informar URL/chave — passo a passo em [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md).
 
 ## Novo na 0.7: estatísticas completas
 

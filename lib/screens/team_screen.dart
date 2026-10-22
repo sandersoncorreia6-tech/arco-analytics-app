@@ -23,6 +23,26 @@ class TeamScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 18),
+        if (state.demoRoster)
+          Card(
+            color: Colors.amber.withValues(alpha: .08),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Elenco de demonstração', style: TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                const Text(
+                  'Estes jogadores são exemplos. Cadastre seus atletas no botão + ou importe o elenco real: '
+                  'aba Stats → sua equipe → "Usar na aba Equipe".',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(onPressed: state.clearDemoRoster, icon: const Icon(Icons.delete_sweep_outlined), label: const Text('Remover exemplos')),
+              ]),
+            ),
+          ),
+        if (state.players.isEmpty)
+          const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Nenhum jogador cadastrado. Use o botão + para adicionar.'))),
         ...state.players.map((p) {
           final score = AnalyticsService.impactScore(p);
           return Card(
@@ -32,8 +52,21 @@ class TeamScreen extends StatelessWidget {
               leading: CircleAvatar(child: Text('${p.number}')),
               title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Text('${p.position} • ${p.points} PTS • ${p.assists} AST • ${p.rebounds} REB'),
-              trailing: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(score.toStringAsFixed(0), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)), const Text('IMPACT', style: TextStyle(fontSize: 9, color: Colors.white54))]),
+              trailing: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(score.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)), const Text('ÍNDICE', style: TextStyle(fontSize: 9, color: Colors.white54))]),
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => PlayerDetailScreen(player: p))),
+              onLongPress: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    title: Text('Remover ${p.name}?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('CANCELAR')),
+                      FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('REMOVER')),
+                    ],
+                  ),
+                );
+                if (ok == true) state.removePlayer(p.id);
+              },
             ),
           );
         }),

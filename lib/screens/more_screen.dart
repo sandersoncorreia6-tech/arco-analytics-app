@@ -3,6 +3,7 @@ import '../state/app_state.dart';
 import '../config/app_config.dart';
 import '../models/league_game.dart';
 import '../widgets/league_widgets.dart';
+import 'analyst_screen.dart';
 import 'games_screen.dart';
 import 'insights_screen.dart';
 import 'reports_screen.dart';
@@ -28,6 +29,8 @@ class MoreScreen extends StatelessWidget {
         const SizedBox(height: 10),
         Card(child: Column(children: [
           ListTile(leading: const Icon(Icons.sports_basketball_outlined), title: const Text('Jogos e scout ao vivo'), subtitle: const Text('Nova partida, histórico e pós-jogo'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GamesScreen()))),
+          const Divider(height: 1),
+          ListTile(leading: const Icon(Icons.psychology_alt_outlined), title: const Text('Analista ARCO'), subtitle: const Text('Perguntas, simulações e plano de treino'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AnalystScreen()))),
           const Divider(height: 1),
           ListTile(leading: const Icon(Icons.lightbulb_outline), title: const Text('Insights'), subtitle: const Text('Leituras automáticas para decisão'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Insights')), body: const InsightsScreen())))),
           const Divider(height: 1),

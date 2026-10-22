@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../analysis/reports.dart';
+import '../analysis/season_analysis.dart';
 import '../services/stats_aggregator.dart';
 import '../state/app_state.dart';
 import '../widgets/court_shot_chart.dart';
@@ -7,6 +9,7 @@ import '../widgets/section_card.dart';
 import '../widgets/stats_widgets.dart';
 import 'box_score_screen.dart';
 import 'player_stats_screen.dart';
+import 'report_screen.dart';
 
 /// Temporada de uma equipe: médias, four factors, elenco, mapa de arremessos e jogos.
 class TeamStatsScreen extends StatefulWidget {
@@ -32,10 +35,26 @@ class _TeamStatsScreenState extends State<TeamStatsScreen> {
     final shots = shooter.isEmpty ? t.shots : t.shots.where((s) => s.playerKey == shooter).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(t.name)),
+      appBar: AppBar(title: Text(t.name), actions: [
+        IconButton(
+          tooltip: mine ? 'Relatório da temporada' : 'Relatório pré-jogo do adversário',
+          icon: const Icon(Icons.description_outlined),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => ReportScreen(report: mine ? Reports.season(SeasonAnalysis(t)) : Reports.preGame(OpponentReport(t))),
+          )),
+        ),
+      ]),
       body: ListView(padding: const EdgeInsets.all(14), children: [
         Text('${t.leagues.join(' / ')} • ${plural(g, 'jogo', 'jogos')} • ${t.wins}V ${t.losses}D',
             style: const TextStyle(color: Colors.white60)),
+        if (!mine) ...[
+          const SizedBox(height: 10),
+          FilledButton.tonalIcon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReportScreen(report: Reports.preGame(OpponentReport(t))))),
+            icon: const Icon(Icons.shield_outlined),
+            label: const Text('Relatório pré-jogo deste adversário'),
+          ),
+        ],
         const SizedBox(height: 12),
         SectionCard(
           title: 'Médias por jogo',
@@ -114,6 +133,49 @@ class _TeamStatsScreenState extends State<TeamStatsScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 12),
+        Builder(builder: (context) {
+          final season = SeasonAnalysis(t);
+          final qs = season.quarterAverages();
+          final lineups = season.lineups().where((l) => l.minutes >= 2).toList()..sort((a, b) => b.plusMinus.compareTo(a.plusMinus));
+          return Column(children: [
+            if (qs.isNotEmpty)
+              SectionCard(
+                title: 'Por quarto (média por jogo)',
+                child: Column(children: [
+                  for (final q in qs)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(children: [
+                        SizedBox(width: 90, child: Text(q.$1)),
+                        Expanded(child: Text('${f1(q.$2)} × ${f1(q.$3)}')),
+                        Text('${q.$2 >= q.$3 ? '+' : ''}${f1(q.$2 - q.$3)}',
+                            style: TextStyle(fontWeight: FontWeight.w800, color: q.$2 >= q.$3 ? Colors.greenAccent : Colors.redAccent)),
+                      ]),
+                    ),
+                ]),
+              ),
+            if (lineups.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SectionCard(
+                title: 'Formações (quintetos)',
+                subtitle: 'Saldo de pontos, minutos juntos e eficiência por 100 posses',
+                child: Column(children: [
+                  for (final (i, l) in lineups.take(8).indexed)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      leading: CircleAvatar(radius: 14, child: Text('${i + 1}', style: const TextStyle(fontSize: 12))),
+                      title: Text(l.names.join(' – '), style: const TextStyle(fontSize: 13)),
+                      subtitle: Text('${f1(l.minutes)} min • ataque ${f1(l.offRating)} • defesa ${f1(l.defRating)}'),
+                      trailing: Text('${l.plusMinus >= 0 ? '+' : ''}${l.plusMinus}',
+                          style: TextStyle(fontWeight: FontWeight.w900, color: l.plusMinus >= 0 ? Colors.greenAccent : Colors.redAccent)),
+                    ),
+                ]),
+              ),
+            ],
+          ]);
+        }),
         const SizedBox(height: 12),
         SectionCard(
           title: 'Jogos',

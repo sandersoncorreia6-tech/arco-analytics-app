@@ -5,7 +5,10 @@ class SectionCard extends StatelessWidget {
   final Widget child;
   final Widget? trailing;
 
-  const SectionCard({super.key, required this.title, required this.child, this.trailing});
+  /// Linha discreta abaixo do título (ex.: "Amostra demo").
+  final String? subtitle;
+
+  const SectionCard({super.key, required this.title, required this.child, this.trailing, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +24,7 @@ class SectionCard extends StatelessWidget {
                 if (trailing != null) Flexible(child: trailing!),
               ],
             ),
+            if (subtitle != null) Text(subtitle!, style: const TextStyle(color: Colors.white54, fontSize: 12)),
             const SizedBox(height: 14),
             child,
           ],

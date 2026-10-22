@@ -24,13 +24,51 @@ class PlayEvent {
   final DateTime timestamp;
   final List<String> lineupIds;
 
+  /// Contexto tático marcado no scout (transição, pick-and-roll...).
+  final String? tag;
+
   const PlayEvent({
     required this.type,
     required this.period,
     required this.timestamp,
     this.playerId,
     this.lineupIds = const [],
+    this.tag,
   });
+
+  static const tags = ['Transição', 'Contra-ataque', 'Pick-and-roll', 'Isolamento', 'Bola parada'];
+
+  String get label => switch (type) {
+        PlayEventType.twoMade => '2 pontos ✓',
+        PlayEventType.twoMiss => '2 pontos ✕',
+        PlayEventType.threeMade => '3 pontos ✓',
+        PlayEventType.threeMiss => '3 pontos ✕',
+        PlayEventType.freeThrowMade => 'Lance livre ✓',
+        PlayEventType.freeThrowMiss => 'Lance livre ✕',
+        PlayEventType.assist => 'Assistência',
+        PlayEventType.offensiveRebound => 'Rebote ofensivo',
+        PlayEventType.defensiveRebound => 'Rebote defensivo',
+        PlayEventType.steal => 'Roubo',
+        PlayEventType.block => 'Toco',
+        PlayEventType.turnover => 'Turnover',
+        PlayEventType.foul => 'Falta',
+        PlayEventType.opponentOne => 'Adversário +1',
+        PlayEventType.opponentTwo => 'Adversário +2',
+        PlayEventType.opponentThree => 'Adversário +3',
+      };
+
+  /// Grupo usado nos filtros de clipes.
+  String get group => switch (type) {
+        PlayEventType.twoMade || PlayEventType.twoMiss || PlayEventType.threeMade || PlayEventType.threeMiss => 'Arremessos',
+        PlayEventType.freeThrowMade || PlayEventType.freeThrowMiss => 'Lances livres',
+        PlayEventType.assist => 'Assistências',
+        PlayEventType.offensiveRebound || PlayEventType.defensiveRebound => 'Rebotes',
+        PlayEventType.steal => 'Roubos',
+        PlayEventType.block => 'Tocos',
+        PlayEventType.turnover => 'Turnovers',
+        PlayEventType.foul => 'Faltas',
+        _ => 'Adversário',
+      };
 
   Map<String, dynamic> toJson() => {
         'type': type.name,
@@ -38,6 +76,7 @@ class PlayEvent {
         'period': period,
         'timestamp': timestamp.toIso8601String(),
         'lineupIds': lineupIds,
+        if (tag != null) 'tag': tag,
       };
 
   /// `null` para tipos desconhecidos (dados de uma versão futura do app).
@@ -50,6 +89,7 @@ class PlayEvent {
       period: (m['period'] as num?)?.toInt() ?? 1,
       timestamp: DateTime.tryParse(m['timestamp'] as String? ?? '') ?? DateTime.now(),
       lineupIds: ((m['lineupIds'] as List?) ?? const []).map((e) => e.toString()).toList(),
+      tag: m['tag'] as String?,
     );
   }
 }

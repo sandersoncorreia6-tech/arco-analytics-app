@@ -20,7 +20,7 @@ class PlayerDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
-          Row(children: [CircleAvatar(radius: 28, child: Text('${player.number}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))), const SizedBox(width: 14), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(player.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), Text('${player.position} • #${player.number}', style: const TextStyle(color: Colors.white60))])), Text(impact.toStringAsFixed(0), style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900))]),
+          Row(children: [CircleAvatar(radius: 28, child: Text('${player.number}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))), const SizedBox(width: 14), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(player.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), Text('${player.position} • #${player.number}', style: const TextStyle(color: Colors.white60))])), Column(children: [Text(impact.toStringAsFixed(1), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900)), const Text('ÍNDICE/JOGO', style: TextStyle(fontSize: 9, color: Colors.white54))])]),
           const SizedBox(height: 20),
           GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.3, children: [
             MetricCard(label: 'eFG%', value: '${efg.toStringAsFixed(1)}%', icon: Icons.gps_fixed),
