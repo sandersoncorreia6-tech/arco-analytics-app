@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [ main ]
   push:
-    branches: [ main, organize-v0.5 ]
+    branches: [ main ]
     paths:
       - "lib/**"
       - "web/**"
@@ -16,6 +16,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: arco-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
