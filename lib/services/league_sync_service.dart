@@ -22,10 +22,6 @@ class LeagueSource {
   /// Domínio aceito para páginas extras configuradas pelo treinador.
   final String host;
 
-  /// Termos usados para buscar o arquivo da temporada na fonte oficial.
-  /// Mantém o histórico da equipe do treinador mesmo quando ele já saiu da home.
-  final List<String> seasonSearchTerms;
-
   const LeagueSource({
     required this.league,
     required this.name,
@@ -33,7 +29,6 @@ class LeagueSource {
     required this.pages,
     required this.proxyPath,
     required this.host,
-    this.seasonSearchTerms = const [],
   });
 
   static const fpb = LeagueSource(
@@ -43,12 +38,11 @@ class LeagueSource {
     pages: [
       'https://fpb.com.br/online/',
       'https://fpb.com.br/',
-      // Notícias de programação/resultados da base (um jogo por linha) via API pública do WordPress.
+      // Reserva para categorias que ainda não estão ligadas ao Schedule estruturado.
       'https://fpb.com.br/wp-json/wp/v2/posts?per_page=12&search=jogos&_fields=date,link,title,content',
     ],
     proxyPath: 'api/fpb-online',
     host: 'fpb.com.br',
-    seasonSearchTerms: ['Tupã'],
   );
 
   static const lbc = LeagueSource(
@@ -122,6 +116,15 @@ class LeagueSyncService {
   static const _legacyFpbProxy = String.fromEnvironment('FPB_PROXY_BASE_URL');
   static const _legacyLbcProxy = String.fromEnvironment('LBC_PROXY_BASE_URL');
 
+  // O Online da FPB usa dados estruturados expostos pelo calendário da CBB.
+  // Em 2026 o catálogo público da CBB está com os rótulos U16 masc/fem
+  // invertidos; este é o ID que efetivamente devolve "SUB 16 M 2026".
+  static const _fpbU16MaleCompetitionIds = <int, String>{
+    2026: '323cc7a9-ee0b-11ee-8350-435475889b11',
+  };
+  static const _cbbCalendarUrl = 'https://www.cbb.com.br/calendario';
+  static const _cbbScheduleAction = '7fa44f483f0a4da7815d44be667b13a23d4fc7bc44';
+
   Uri _proxyUri([String? pageUrl]) {
     var base = _proxyBase;
     if (base.isEmpty) base = source.league == 'FPB' ? _legacyFpbProxy : _legacyLbcProxy;
@@ -130,41 +133,84 @@ class LeagueSyncService {
     return pageUrl == null ? uri : uri.replace(queryParameters: {'url': pageUrl});
   }
 
-  /// Páginas do arquivo da temporada atual. A FPB publica programação e
-  /// resultados em notícias; a home/Online mostra apenas uma janela recente.
-  List<Uri> _seasonArchivePages() {
-    if (source.seasonSearchTerms.isEmpty) return const [];
-    final year = DateTime.now().year;
-    final after = '${year.toString().padLeft(4, '0')}-01-01T00:00:00';
-    final before = '${(year + 1).toString().padLeft(4, '0')}-01-01T00:00:00';
-    return [
-      for (final term in source.seasonSearchTerms)
-        Uri.https(source.host, '/wp-json/wp/v2/posts', {
-          'per_page': '100',
-          'search': term,
-          'after': after,
-          'before': before,
-          '_fields': 'date,link,title,content',
-        }),
-    ];
-  }
-
-  /// Endereços consultados nesta plataforma (Web passa pelo proxy).
-  ///
-  /// Importante: a Web agora encaminha TODAS as páginas configuradas pelo
-  /// proxy, inclusive o arquivo anual. Antes ela consultava apenas o endpoint
-  /// padrão do proxy e perdia a fonte de notícias usada no app nativo.
+  /// Endereços HTML auxiliares consultados nesta plataforma. O Schedule do
+  /// Sub-16 é buscado separadamente, em fonte estruturada e autoritativa.
   List<Uri> endpoints({List<String> extraPages = const []}) {
     final extras = extraPages.map(Uri.tryParse).whereType<Uri>().where(source.acceptsUrl);
     final targets = <Uri>[
       for (final p in source.pages) Uri.parse(p),
-      ..._seasonArchivePages(),
       ...extras,
     ];
-
     final unique = <String, Uri>{for (final uri in targets) uri.toString(): uri}.values.toList();
     if (kIsWeb) return [for (final uri in unique) _proxyUri(uri.toString())];
     return unique;
+  }
+
+  Uri _fpbScheduleProxyUri(int year, String competitionId) {
+    final base = _proxyUri();
+    return base.replace(queryParameters: {
+      'mode': 'schedule',
+      'competitionId': competitionId,
+      'year': '$year',
+    });
+  }
+
+  Future<(SourceAttempt, List<ParsedGame>)?> _fetchFpbSchedule(DateTime now) async {
+    if (source.league != 'FPB') return null;
+    final competitionId = _fpbU16MaleCompetitionIds[now.year];
+    if (competitionId == null) return null;
+
+    final displayUrl = '${_cbbCalendarUrl} • FPB SUB 16 M ${now.year}';
+    try {
+      late final FetchedPage page;
+      if (kIsWeb) {
+        page = await _fetcher.get(_fpbScheduleProxyUri(now.year, competitionId));
+      } else {
+        final payload = jsonEncode([
+          {
+            'competitionId': competitionId,
+            'org': 'fpb',
+            'fromDate': '${now.year}-01-01',
+            'toDate': '${now.year}-12-31',
+          }
+        ]);
+        page = await _fetcher.post(
+          Uri.parse(_cbbCalendarUrl),
+          headers: const {
+            'Accept': 'text/x-component',
+            'Content-Type': 'text/plain;charset=UTF-8',
+            'Next-Action': _cbbScheduleAction,
+          },
+          body: payload,
+        );
+      }
+
+      final parsed = parseCbbSchedule(page.body, now)
+          .where((g) => g.competition == 'SUB 16 M')
+          .toList();
+      return (
+        SourceAttempt(
+          url: displayUrl,
+          ok: true,
+          statusCode: page.statusCode,
+          bytes: page.body.length,
+          elapsed: page.elapsed,
+          gamesFound: parsed.length,
+        ),
+        parsed,
+      );
+    } catch (e) {
+      final code = e is SourceFetchException ? e.statusCode : null;
+      return (
+        SourceAttempt(
+          url: displayUrl,
+          ok: false,
+          statusCode: code,
+          error: SourceFetcher.describe(e),
+        ),
+        const <ParsedGame>[],
+      );
+    }
   }
 
   Future<LeagueSyncResult> fetch({List<String> extraPages = const []}) async {
@@ -172,7 +218,8 @@ class LeagueSyncService {
     final targets = endpoints(extraPages: extraPages);
     final matchIds = <String>{};
 
-    final attempts = await Future.wait(targets.map((uri) async {
+    final schedule = await _fetchFpbSchedule(now);
+    final pageAttempts = await Future.wait(targets.map((uri) async {
       try {
         final page = await _fetcher.get(uri);
         final (parsed, ids) = parsePage(page.body, now);
@@ -195,7 +242,6 @@ class LeagueSyncService {
             url: uri.toString(),
             ok: false,
             statusCode: code,
-            // Na Web, 404/405 vem do servidor do próprio app: o proxy /api não foi publicado.
             error: kIsWeb && (code == 404 || code == 405)
                 ? 'Proxy ${source.proxyPath} não encontrado neste site. Publique a pasta api/ na Vercel '
                     'ou gere a Web com ARCO_PROXY_BASE_URL. Enquanto isso, use "Colar jogos".'
@@ -206,6 +252,10 @@ class LeagueSyncService {
       }
     }));
 
+    final attempts = <(SourceAttempt, List<ParsedGame>)>[
+      if (schedule != null) schedule,
+      ...pageAttempts,
+    ];
     final ok = attempts.where((a) => a.$1.ok).toList();
     if (ok.isEmpty) {
       throw LeagueSyncException(
@@ -215,8 +265,18 @@ class LeagueSyncService {
     }
 
     final byId = <String, LeagueGame>{};
-    for (final (_, parsed) in ok) {
-      for (final g in parsed) {
+    final structuredSub16 = schedule != null && schedule.$1.ok && schedule.$2.isNotEmpty;
+
+    if (structuredSub16) {
+      for (final g in schedule.$2) {
+        final game = toLeagueGame(g, fetchedAt: now, sourceUrl: source.officialUrl);
+        byId[game.id] = game;
+      }
+    }
+
+    for (final attempt in pageAttempts.where((a) => a.$1.ok)) {
+      for (final g in attempt.$2) {
+        if (structuredSub16 && g.competition == 'SUB 16 M') continue;
         final game = toLeagueGame(g, fetchedAt: now, sourceUrl: source.officialUrl);
         byId.putIfAbsent(game.id, () => game);
       }
@@ -232,6 +292,94 @@ class LeagueSyncService {
               'Use "Colar jogos" ou cadastre a página exata da agenda em "Fontes".'
           : null,
     );
+  }
+
+  /// Converte a resposta do Schedule da CBB/FPB (JSON ou payload RSC de
+  /// Server Action) para o formato comum do ARCO.
+  static List<ParsedGame> parseCbbSchedule(String body, DateTime now) {
+    dynamic decoded;
+    final trimmed = body.trim();
+
+    try {
+      if (trimmed.startsWith('[')) {
+        decoded = jsonDecode(trimmed);
+      } else if (trimmed.startsWith('{')) {
+        final root = jsonDecode(trimmed);
+        decoded = root is Map && root['games'] is List ? root['games'] : root;
+      } else {
+        for (final line in const LineSplitter().convert(body)) {
+          final colon = line.indexOf(':');
+          if (colon < 0) continue;
+          final payload = line.substring(colon + 1).trimLeft();
+          if (!payload.startsWith('[')) continue;
+          final value = jsonDecode(payload);
+          if (value is List) {
+            decoded = value;
+            break;
+          }
+        }
+      }
+    } catch (_) {
+      return const [];
+    }
+
+    if (decoded is Map && decoded['data'] is List) decoded = decoded['data'];
+    if (decoded is! List) return const [];
+
+    final out = <ParsedGame>[];
+    for (final raw in decoded.whereType<Map>()) {
+      final competitors = (raw['competitors'] as List?)?.whereType<Map>().toList() ?? const <Map>[];
+      if (competitors.length < 2) continue;
+
+      Map? home;
+      Map? away;
+      for (final team in competitors) {
+        final flag = team['isHomeCompetitor'];
+        if (flag == true || flag == 1 || flag?.toString() == '1') {
+          home ??= team;
+        } else if (flag == false || flag == 0 || flag?.toString() == '0') {
+          away ??= team;
+        }
+      }
+      home ??= competitors.first;
+      away ??= competitors.firstWhere((e) => !identical(e, home), orElse: () => competitors.last);
+
+      final homeName = (home['teamName'] ?? '').toString().trim();
+      final awayName = (away['teamName'] ?? '').toString().trim();
+      if (homeName.isEmpty || awayName.isEmpty) continue;
+
+      int? score(Map team) {
+        final value = team['scoreString'] ?? team['score'];
+        if (value is num) return value.toInt();
+        return int.tryParse(value?.toString().trim() ?? '');
+      }
+
+      final competitionRaw = (raw['competitionName'] ?? '').toString();
+      final competition = ScheduleParser.competitionOf(competitionRaw);
+      final venue = raw['venue'];
+      final venueName = venue is Map ? (venue['venueName'] ?? venue['name'] ?? '').toString() : '';
+      final scheduledAt = DateTime.tryParse((raw['matchTime'] ?? raw['matchTimeUTC'] ?? '').toString());
+      final statusRaw = (raw['matchStatus'] ?? '').toString().toUpperCase();
+      final status = switch (statusRaw) {
+        'COMPLETE' || 'COMPLETED' || 'FINAL' || 'FINISHED' => 'FINAL',
+        'IN_PROGRESS' || 'LIVE' || 'IN PROGRESS' => 'AO VIVO',
+        'POSTPONED' => 'ADIADO',
+        'CANCELLED' || 'CANCELED' => 'CANCELADO',
+        _ => 'AGENDADO',
+      };
+
+      out.add(ParsedGame(
+        homeTeam: homeName,
+        awayTeam: awayName,
+        homeScore: score(home),
+        awayScore: score(away),
+        status: status,
+        competition: competition.isEmpty ? competitionRaw : competition,
+        venue: venueName,
+        scheduledAt: scheduledAt,
+      ));
+    }
+    return out;
   }
 
   /// Interpreta uma resposta: página HTML ou lista de notícias JSON do WordPress.
