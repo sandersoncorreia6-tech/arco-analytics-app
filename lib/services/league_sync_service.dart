@@ -137,12 +137,17 @@ class LeagueSyncService {
           parsed,
         );
       } catch (e) {
+        final code = e is SourceFetchException ? e.statusCode : null;
         return (
           SourceAttempt(
             url: uri.toString(),
             ok: false,
-            statusCode: e is SourceFetchException ? e.statusCode : null,
-            error: SourceFetcher.describe(e),
+            statusCode: code,
+            // Na Web, 404/405 vem do servidor do próprio app: o proxy /api não foi publicado.
+            error: kIsWeb && (code == 404 || code == 405)
+                ? 'Proxy ${source.proxyPath} não encontrado neste site. Publique a pasta api/ na Vercel '
+                    'ou gere a Web com ARCO_PROXY_BASE_URL. Enquanto isso, use "Colar jogos".'
+                : SourceFetcher.describe(e),
           ),
           const <ParsedGame>[],
         );

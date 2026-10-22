@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import '../config/app_config.dart';
+import '../models/league_game.dart';
 import '../widgets/league_widgets.dart';
 import 'games_screen.dart';
 import 'reports_screen.dart';
@@ -32,7 +33,7 @@ class MoreScreen extends StatelessWidget {
           ListTile(leading: const Icon(Icons.description_outlined), title: const Text('Relatórios'), subtitle: const Text('Resumo pós-jogo e comissão técnica'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReportsScreen()))),
           const Divider(height: 1),
           for (final feed in state.feeds) ...[
-            ListTile(leading: const Icon(Icons.network_check), title: Text('Diagnóstico de conexão ${feed.league}'), subtitle: Text(feed.error ?? feed.warning ?? 'OK • ${feed.games.length} jogos • ${lastSyncLabel(feed)}', maxLines: 2, overflow: TextOverflow.ellipsis), onTap: () => showDiagnosticsSheet(context, feed)),
+            ListTile(leading: const Icon(Icons.network_check), title: Text('Diagnóstico de conexão ${feed.league}'), subtitle: Text(feed.error ?? feed.warning ?? 'OK • ${gamesCount(feed.games.length)} • ${lastSyncLabel(feed)}', maxLines: 2, overflow: TextOverflow.ellipsis), onTap: () => showDiagnosticsSheet(context, feed)),
             const Divider(height: 1),
           ],
           ListTile(leading: const Icon(Icons.logout), title: const Text('Sair'), subtitle: const Text('Encerrar sessão local'), onTap: state.logout),

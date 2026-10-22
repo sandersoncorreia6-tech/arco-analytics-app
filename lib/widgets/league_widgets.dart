@@ -59,7 +59,7 @@ class LeagueStatusCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${feed.league} • ${feed.games.length} jogos${live > 0 ? ' • $live ao vivo' : ''}',
+                  Text('${feed.league} • ${gamesCount(feed.games.length)}${live > 0 ? ' • $live ao vivo' : ''}',
                       style: const TextStyle(fontWeight: FontWeight.w800)),
                   Text(
                     feed.syncing ? 'sincronizando...' : '${lastSyncLabel(feed)} • a cada ${feed.hasLive ? '30 s' : '3 min'}',
@@ -397,7 +397,7 @@ Future<void> showDiagnosticsSheet(BuildContext context, LeagueFeed feed) async {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Diagnóstico • ${feed.source.name}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
-            Text('Situação: ${feed.syncing ? 'sincronizando...' : feed.error ?? feed.warning ?? 'OK — ${feed.games.length} jogos'}'),
+            Text('Situação: ${feed.syncing ? 'sincronizando...' : feed.error ?? feed.warning ?? 'OK — ${gamesCount(feed.games.length)}'}'),
             Text('Última sincronização: ${lastSyncLabel(feed)}', style: const TextStyle(color: Colors.white60)),
             const SizedBox(height: 12),
             if (feed.lastAttempts.isEmpty && !feed.syncing)

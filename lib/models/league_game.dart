@@ -84,3 +84,6 @@ class LeagueGame {
         manual: (m['manual'] as bool?) ?? false,
       );
 }
+
+/// "1 jogo", "3 jogos".
+String gamesCount(int n) => n == 1 ? '1 jogo' : '$n jogos';

@@ -20,11 +20,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.textContaining('Olá, Adriano'), findsOneWidget);
 
-      for (final tab in ['Competições', 'Equipe', 'Analytics', 'Insights', 'Mais', 'Home']) {
+      for (final tab in ['Ligas', 'Equipe', 'Analytics', 'Insights', 'Mais', 'Home']) {
         await tester.tap(find.text(tab).last);
         await tester.pump(const Duration(milliseconds: 300));
       }
-      await tester.tap(find.text('Competições').last);
+      await tester.tap(find.text('Ligas').last);
       await tester.pump(const Duration(seconds: 2));
       expect(find.textContaining('FPB •'), findsWidgets);
       expect(find.textContaining('LBC •'), findsWidgets);
@@ -46,16 +46,16 @@ void main() {
       await tester.scrollUntilVisible(find.text('Marília'), 200, scrollable: find.byType(Scrollable).hitTestable().first);
       expect(find.text('Tupã'), findsWidgets);
 
-      await tester.tap(find.text('Competições').last);
+      await tester.tap(find.text('Ligas').last);
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.textContaining('FPB • 1 jogos • 1 ao vivo'), findsOneWidget);
-      expect(find.textContaining('LBC • 1 jogos'), findsOneWidget);
+      expect(find.textContaining('FPB • 1 jogo • 1 ao vivo'), findsOneWidget);
+      expect(find.textContaining('LBC • 1 jogo'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('Marília'), 200, scrollable: find.byType(Scrollable).hitTestable().first);
       expect(find.text('AO VIVO'), findsWidgets);
 
       // Tela da liga abre a partir do cartão de status.
-      await tester.scrollUntilVisible(find.textContaining('FPB • 1 jogos'), -200, scrollable: find.byType(Scrollable).hitTestable().first);
-      await tester.tap(find.textContaining('FPB • 1 jogos'));
+      await tester.scrollUntilVisible(find.textContaining('FPB • 1 jogo'), -200, scrollable: find.byType(Scrollable).hitTestable().first);
+      await tester.tap(find.textContaining('FPB • 1 jogo'));
       await tester.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
       expect(find.text('FPB • jogos'), findsOneWidget);
     }, () => _FakeLeagueClient());

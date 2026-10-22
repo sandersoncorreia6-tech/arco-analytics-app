@@ -6,6 +6,7 @@ import '../state/app_state.dart';
 import '../widgets/insight_tile.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/section_card.dart';
+import '../models/league_game.dart';
 import '../state/league_feed.dart';
 import '../widgets/league_widgets.dart';
 import 'game_detail_screen.dart';
@@ -108,7 +109,7 @@ class HomeScreen extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
                 for (final f in state.feeds) ...[
-                  Expanded(child: _MiniStat(label: f.league, value: '${state.myTeamGames(f).length} jogos', warning: f.error != null)),
+                  Expanded(child: _MiniStat(label: f.league, value: gamesCount(state.myTeamGames(f).length), warning: f.error != null)),
                   if (f != state.feeds.last) const SizedBox(width: 10),
                 ],
               ]),
