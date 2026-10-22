@@ -182,6 +182,18 @@ class HomeScreen extends StatelessWidget {
               ]),
               if (next != null) tile('Próximo', next),
               if (last != null) tile('Último', last),
+              if (mine.isNotEmpty)
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: EdgeInsets.zero,
+                  title: Text('Temporada ${state.coach.season.isEmpty ? now.year : state.coach.season} completa',
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text('${mine.length} jogos em ordem de calendário', style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                  children: [
+                    for (final g in GameRepository.query(mine, GameView.season, const GameFilter(), now: now))
+                      tile(g.result.isEmpty ? (g.game.isLive ? 'Ao vivo' : 'Agenda') : g.result, g),
+                  ],
+                ),
               if (mine.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 8),

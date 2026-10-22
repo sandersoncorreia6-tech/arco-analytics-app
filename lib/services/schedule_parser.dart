@@ -14,6 +14,14 @@ class ParsedGame {
   final String venue;
   final DateTime? scheduledAt;
 
+  /// Dados de fontes estruturadas (vazios em páginas/texto).
+  final String sourceId;
+  final String competitionId;
+  final String competitionName;
+  final String homeTeamId;
+  final String awayTeamId;
+  final String round;
+
   const ParsedGame({
     required this.homeTeam,
     required this.awayTeam,
@@ -23,6 +31,12 @@ class ParsedGame {
     this.competition = '',
     this.venue = '',
     this.scheduledAt,
+    this.sourceId = '',
+    this.competitionId = '',
+    this.competitionName = '',
+    this.homeTeamId = '',
+    this.awayTeamId = '',
+    this.round = '',
   });
 
   bool get hasScore => homeScore != null && awayScore != null;
@@ -39,6 +53,12 @@ class ParsedGame {
         competition: competition ?? this.competition,
         venue: venue,
         scheduledAt: scheduledAt ?? this.scheduledAt,
+        sourceId: sourceId,
+        competitionId: competitionId,
+        competitionName: competitionName,
+        homeTeamId: homeTeamId,
+        awayTeamId: awayTeamId,
+        round: round,
       );
 
   /// Combina dois registros do mesmo jogo, preferindo o dado mais completo.

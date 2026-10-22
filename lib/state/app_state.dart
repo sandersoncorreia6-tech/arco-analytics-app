@@ -31,6 +31,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Timer? _ticker;
   bool _foreground = true;
+  bool _disposed = false;
+
+  /// Sincronizações podem terminar depois de o app ser fechado.
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
   bool ready = false;
 
   bool loggedIn = false;
@@ -90,6 +97,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
     }
     await syncAllLeagues(silent: true);
+    if (_disposed) return;
     _ticker = Timer.periodic(const Duration(seconds: 15), (_) => _tick());
   }
 
@@ -125,7 +133,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     feed.lastAttemptAt = DateTime.now();
     if (!silent) notifyListeners();
     try {
-      final result = await feed.service.fetch(extraPages: feed.extraPages);
+      final result = await feed.service.fetch(
+        extraPages: feed.extraPages,
+        competitionIds: feed.league == coach.league ? coach.competitionIds : const [],
+      );
       feed.apply(result);
       await _saveFeed(feed);
       if (_registerMatches(result.matchIds, feed.league)) unawaited(syncStats(silent: true));
@@ -365,6 +376,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     super.dispose();

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../models/league_game.dart';
+import '../data/providers/competition_provider.dart';
+import '../data/providers/fpb_provider.dart';
 import 'fiba_livestats.dart';
 import 'schedule_parser.dart';
 import 'source_fetcher.dart';
@@ -38,7 +40,7 @@ class LeagueSource {
     pages: [
       'https://fpb.com.br/online/',
       'https://fpb.com.br/',
-      // Notícias de programação/resultados da base (um jogo por linha) via API pública do WordPress.
+      // Reserva para categorias que ainda não estão ligadas ao Schedule estruturado.
       'https://fpb.com.br/wp-json/wp/v2/posts?per_page=12&search=jogos&_fields=date,link,title,content',
     ],
     proxyPath: 'api/fpb-online',
@@ -107,10 +109,15 @@ class LeagueSyncResult {
 /// Para trocar por uma API oficial/licenciada no futuro, basta outra classe
 /// que devolva [LeagueSyncResult]: telas e analytics não mudam.
 class LeagueSyncService {
-  LeagueSyncService(this.source, {SourceFetcher? fetcher}) : _fetcher = fetcher ?? SourceFetcher();
+  LeagueSyncService(this.source, {SourceFetcher? fetcher, CompetitionProvider? provider}) : _fetcher = fetcher ?? SourceFetcher() {
+    this.provider = provider ?? (source.league == 'FPB' ? FpbProvider(fetcher: _fetcher, webProxy: _proxyUri) : const LbcProvider());
+  }
 
   final LeagueSource source;
   final SourceFetcher _fetcher;
+
+  /// Integração estruturada da liga (calendário oficial).
+  late final CompetitionProvider provider;
 
   static const _proxyBase = String.fromEnvironment('ARCO_PROXY_BASE_URL');
   static const _legacyFpbProxy = String.fromEnvironment('FPB_PROXY_BASE_URL');
@@ -124,19 +131,26 @@ class LeagueSyncService {
     return pageUrl == null ? uri : uri.replace(queryParameters: {'url': pageUrl});
   }
 
-  /// Endereços consultados nesta plataforma (Web passa pelo proxy).
+  /// Endereços HTML auxiliares consultados nesta plataforma. O Schedule do
+  /// Sub-16 é buscado separadamente, em fonte estruturada e autoritativa.
   List<Uri> endpoints({List<String> extraPages = const []}) {
-    final extras = extraPages.map(Uri.tryParse).whereType<Uri>().where(source.acceptsUrl).toList();
-    if (kIsWeb) return [_proxyUri(), for (final e in extras) _proxyUri(e.toString())];
-    return [for (final p in source.pages) Uri.parse(p), ...extras];
+    final extras = extraPages.map(Uri.tryParse).whereType<Uri>().where(source.acceptsUrl);
+    final targets = <Uri>[
+      for (final p in source.pages) Uri.parse(p),
+      ...extras,
+    ];
+    final unique = <String, Uri>{for (final uri in targets) uri.toString(): uri}.values.toList();
+    if (kIsWeb) return [for (final uri in unique) _proxyUri(uri.toString())];
+    return unique;
   }
 
-  Future<LeagueSyncResult> fetch({List<String> extraPages = const []}) async {
+  Future<LeagueSyncResult> fetch({List<String> extraPages = const [], List<String> competitionIds = const []}) async {
     final now = DateTime.now();
     final targets = endpoints(extraPages: extraPages);
     final matchIds = <String>{};
 
-    final attempts = await Future.wait(targets.map((uri) async {
+    final schedules = await provider.fetchSchedules(season: now.year, competitionIds: competitionIds);
+    final pageAttempts = await Future.wait(targets.map((uri) async {
       try {
         final page = await _fetcher.get(uri);
         final (parsed, ids) = parsePage(page.body, now);
@@ -159,7 +173,6 @@ class LeagueSyncService {
             url: uri.toString(),
             ok: false,
             statusCode: code,
-            // Na Web, 404/405 vem do servidor do próprio app: o proxy /api não foi publicado.
             error: kIsWeb && (code == 404 || code == 405)
                 ? 'Proxy ${source.proxyPath} não encontrado neste site. Publique a pasta api/ na Vercel '
                     'ou gere a Web com ARCO_PROXY_BASE_URL. Enquanto isso, use "Colar jogos".'
@@ -170,6 +183,10 @@ class LeagueSyncService {
       }
     }));
 
+    final attempts = <(SourceAttempt, List<ParsedGame>)>[
+      for (final sc in schedules) (sc.attempt, sc.games),
+      ...pageAttempts,
+    ];
     final ok = attempts.where((a) => a.$1.ok).toList();
     if (ok.isEmpty) {
       throw LeagueSyncException(
@@ -179,8 +196,22 @@ class LeagueSyncService {
     }
 
     final byId = <String, LeagueGame>{};
-    for (final (_, parsed) in ok) {
-      for (final g in parsed) {
+    // Categorias cobertas pelo calendário estruturado: páginas/notícias dessas
+    // categorias não entram (a fonte estruturada é a autoritativa).
+    final covered = <String>{
+      for (final sc in schedules)
+        if (sc.attempt.ok && sc.games.isNotEmpty) ...{for (final g in sc.games) g.competition},
+    };
+    for (final sc in schedules) {
+      for (final g in sc.games) {
+        final game = toLeagueGame(g, fetchedAt: now, sourceUrl: source.officialUrl);
+        byId[game.id] = game;
+      }
+    }
+
+    for (final attempt in pageAttempts.where((a) => a.$1.ok)) {
+      for (final g in attempt.$2) {
+        if (covered.contains(g.competition)) continue;
         final game = toLeagueGame(g, fetchedAt: now, sourceUrl: source.officialUrl);
         byId.putIfAbsent(game.id, () => game);
       }
@@ -197,6 +228,9 @@ class LeagueSyncService {
           : null,
     );
   }
+
+  /// Calendário estruturado da FPB (mantido por compatibilidade; ver [FpbProvider]).
+  static List<ParsedGame> parseCbbSchedule(String body, DateTime now) => FpbProvider.parseSchedule(body);
 
   /// Interpreta uma resposta: página HTML ou lista de notícias JSON do WordPress.
   /// Devolve os jogos e os ids de partidas com estatística online.
@@ -234,8 +268,15 @@ class LeagueSyncService {
   LeagueGame toLeagueGame(ParsedGame g, {required DateTime fetchedAt, required String sourceUrl, bool manual = false}) {
     final d = g.scheduledAt;
     final day = d == null ? '' : '${d.year}-${d.month}-${d.day}';
+    final seasonFromName = RegExp(r'\b(20\d{2})\b').firstMatch(g.competitionName)?.group(1);
+    String teamId(String sourceTeamId, String name) => sourceTeamId.isNotEmpty
+        ? '${source.league.toLowerCase()}_t$sourceTeamId'
+        : 'n:${ScheduleParser.normalize('$name ${g.competition}').replaceAll(' ', '-')}';
     return LeagueGame(
-      id: ScheduleParser.stableId(source.league, [g.competition, g.homeTeam, g.awayTeam, day]),
+      // Fonte estruturada: id oficial da partida (estável mesmo se horário/placar mudarem).
+      id: g.sourceId.isNotEmpty
+          ? '${source.league.toLowerCase()}_m${g.sourceId}'
+          : ScheduleParser.stableId(source.league, [g.competition, g.homeTeam, g.awayTeam, day]),
       league: source.league,
       homeTeam: g.homeTeam,
       awayTeam: g.awayTeam,
@@ -248,6 +289,13 @@ class LeagueSyncService {
       fetchedAt: fetchedAt,
       sourceUrl: sourceUrl,
       manual: manual,
+      competitionId: g.competitionId.isNotEmpty ? '${source.league.toLowerCase()}_c${g.competitionId}' : '',
+      competitionName: g.competitionName,
+      seasonId: seasonFromName ?? (d?.year.toString() ?? ''),
+      round: g.round,
+      homeTeamId: teamId(g.homeTeamId, g.homeTeam),
+      awayTeamId: teamId(g.awayTeamId, g.awayTeam),
     );
   }
+
 }
