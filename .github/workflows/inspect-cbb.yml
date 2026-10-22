@@ -9,50 +9,44 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe FPB U16 match range
+      - name: Call public CBB calendar Server Action
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p out
+          URL='https://www.cbb.com.br/calendario'
+          ACTION='7fa44f483f0a4da7815d44be667b13a23d4fc7bc44'
+          BODY='[{"competitionId":"a0c20e2d-5283-11ef-bfb0-df3fdaddb2d0","org":"fpb","fromDate":"2026-01-01","toDate":"2026-12-31"}]'
           python3 - <<'PY'
-          import pathlib, urllib.request, urllib.error, urllib.parse, json
-          base='https://api.cbb.com.br/v1/matches/range'
-          cid='a0c20e2d-5283-11ef-bfb0-df3fdaddb2d0'
-          variants=[
-            {'competitionId':cid,'org':'fpb','fromDate':'2026-01-01','toDate':'2026-12-31'},
-            {'competitionId':cid,'org':'fpb','from':'2026-01-01','to':'2026-12-31'},
-            {'competitionId':cid,'league':'fpb','from':'2026-01-01','to':'2026-12-31'},
-            {'competitionId':cid,'league':'fpb','startDate':'2026-01-01','endDate':'2026-12-31'},
-            {'competitionId':cid,'org':'fpb','startDate':'2026-01-01','endDate':'2026-12-31'},
-            {'competition_id':cid,'org':'fpb','from_date':'2026-01-01','to_date':'2026-12-31'},
-            {'competition':cid,'org':'fpb','from':'2026-01-01','to':'2026-12-31'},
-            {'competition':cid,'league':'fpb','from':'2026-01-01','to':'2026-12-31'},
-            {'competitionId':cid,'provider':'fpb','fromDate':'2026-01-01','toDate':'2026-12-31'},
-            {'competitionId':cid,'organization':'fpb','fromDate':'2026-01-01','toDate':'2026-12-31'},
-            {'competitionId':cid,'source':'fpb','fromDate':'2026-01-01','toDate':'2026-12-31'},
-            {'competitionId':cid,'league':'fpb','dateFrom':'2026-01-01','dateTo':'2026-12-31'},
-            {'competitionId':cid,'org':'fpb','dateFrom':'2026-01-01','dateTo':'2026-12-31'},
-            {'competitionId':cid,'org':'fpb','start':'2026-01-01','end':'2026-12-31'},
+          import subprocess, pathlib, json
+          url='https://www.cbb.com.br/calendario'
+          action='7fa44f483f0a4da7815d44be667b13a23d4fc7bc44'
+          body='[{"competitionId":"a0c20e2d-5283-11ef-bfb0-df3fdaddb2d0","org":"fpb","fromDate":"2026-01-01","toDate":"2026-12-31"}]'
+          trees=[
+            None,
+            '["",{"children":["calendario",{"children":["__PAGE__",{}]}]},null,null,true]',
+            '["",{"children":["calendario",{"children":["__PAGE__?{}",{}]}]},null,null,true]',
           ]
           report=[]
-          for i,q in enumerate(variants):
-              url=base+'?'+urllib.parse.urlencode(q)
-              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 ARCO-Analytics','Accept':'application/json'})
-              try:
-                  with urllib.request.urlopen(req,timeout=20) as resp:
-                      body=resp.read(); code=resp.status
-              except urllib.error.HTTPError as e:
-                  code=e.code; body=e.read()
-              except Exception as e:
-                  code='ERR'; body=str(e).encode()
-              pathlib.Path(f'out/{i}.txt').write_bytes(body)
-              preview=body[:500].decode(errors='replace').replace('\n',' ')
-              report.append({'i':i,'code':code,'bytes':len(body),'query':q,'preview':preview})
+          for i,tree in enumerate(trees):
+              args=['curl','-L','-sS','--max-time','30','-D',f'out/{i}.headers','-o',f'out/{i}.body',
+                    '-X','POST',url,
+                    '-H','User-Agent: Mozilla/5.0 ARCO-Analytics',
+                    '-H','Accept: text/x-component',
+                    '-H',f'Next-Action: {action}',
+                    '-H','Content-Type: text/plain;charset=UTF-8',
+                    '--data-binary',body]
+              if tree:
+                  args += ['-H',f'Next-Router-State-Tree: {tree}']
+              p=subprocess.run(args,capture_output=True,text=True)
+              b=pathlib.Path(f'out/{i}.body').read_bytes() if pathlib.Path(f'out/{i}.body').exists() else b''
+              h=pathlib.Path(f'out/{i}.headers').read_text(errors='ignore') if pathlib.Path(f'out/{i}.headers').exists() else ''
+              report.append({'i':i,'returncode':p.returncode,'tree':tree,'bytes':len(b),'hasTupa':b'TUP' in b.upper(),'headers':h[-1200:],'preview':b[:3500].decode(errors='replace')})
           pathlib.Path('out/report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
           print(json.dumps(report,ensure_ascii=False,indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: cbb-range-probe
+          name: cbb-server-action-probe
           path: out/
           retention-days: 1
