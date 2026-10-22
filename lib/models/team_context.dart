@@ -1,3 +1,5 @@
+import 'federation_context.dart';
+
 class TeamContext {
   final String organizationId;
   final String teamId;
@@ -5,6 +7,7 @@ class TeamContext {
   final String seasonId;
   final int seasonYear;
   final List<String> aliases;
+  final FederativeLink federativeLink;
 
   const TeamContext({
     required this.organizationId,
@@ -13,6 +16,7 @@ class TeamContext {
     required this.seasonId,
     required this.seasonYear,
     required this.aliases,
+    required this.federativeLink,
   });
 
   static const tupaMonstrinho2026 = TeamContext(
@@ -27,17 +31,32 @@ class TeamContext {
       'Monstrinho',
       'Tupã Basquete',
       'Tupa Basquete',
+      'ATB - Associação Tupã Basquete',
+      'ATB Associação Tupã Basquete',
+      'F.R. Tupã',
+      'FR Tupã',
+      'Indians Tupã Basquete',
     ],
+    federativeLink: FederativeLink.tupaFpb,
   );
 
   bool matchesExternalName(String value) {
     final normalizedValue = normalize(value);
-    return aliases.any((alias) {
+
+    final knownNames = <String>[
+      ...aliases,
+      ...federativeLink.externalIdentities.map((e) => e.officialName),
+    ];
+
+    return knownNames.any((alias) {
       final normalizedAlias = normalize(alias);
       return normalizedValue == normalizedAlias ||
-          normalizedValue.contains(normalizedAlias);
+          normalizedValue.contains(normalizedAlias) ||
+          normalizedAlias.contains(normalizedValue);
     });
   }
+
+  String get federativePathLabel => 'CBB → FPB';
 
   static String normalize(String value) {
     return value
@@ -65,6 +84,7 @@ class TeamContext {
         .replaceAll('û', 'u')
         .replaceAll('ü', 'u')
         .replaceAll('ç', 'c')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
