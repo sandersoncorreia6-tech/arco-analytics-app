@@ -9,88 +9,50 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect public CBB calendar API
+      - name: Probe FPB U16 match range
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p out
-          API='https://api.cbb.com.br'
-          curl -L --retry 2 --max-time 30 -A 'Mozilla/5.0 ARCO-Analytics' "$API/v1/leagues-collections?page=1&limit=50" -o out/collections.json
-          for path in openapi.json swagger.json docs v1/openapi.json v1/swagger.json; do
-            code=$(curl -L -sS -o "out/$(echo "$path" | tr '/' '_').txt" -w '%{http_code}' --max-time 20 "$API/$path" || true)
-            echo "$path HTTP $code" >> out/probe-status.txt
-          done
           python3 - <<'PY'
-          import json, pathlib, urllib.parse, subprocess
-          p=pathlib.Path('out/collections.json')
-          raw=json.loads(p.read_text())
-          data=raw.get('data', raw if isinstance(raw,list) else [])
-          found=[]
-          for league in data:
-              comps=league.get('competitions') or {}
-              for org,items in comps.items():
-                  for c in items or []:
-                      name=str(c.get('name',''))
-                      if '16' in name and ('2026' in name or c.get('seasonStartYear')==2026):
-                          found.append({'league':league.get('name'),'org':org,**c})
-          pathlib.Path('out/sub16-competitions.json').write_text(json.dumps(found,ensure_ascii=False,indent=2))
-          target=next((x for x in found if x.get('org')=='fpb' and x.get('naipe')=='male' and '16' in str(x.get('name',''))),None)
-          if not target:
-              target=next((x for x in found if x.get('org')=='fpb' and '16' in str(x.get('name',''))),None)
-          if not target:
-              pathlib.Path('out/candidates.txt').write_text('FPB SUB16 not found')
-              raise SystemExit(0)
-          cid=str(target.get('id'))
-          org=str(target.get('org'))
-          qs={
-            'competitionId':cid,'competition_id':cid,'competition':cid,
-            'org':org,'league':org,'fromDate':'2026-01-01','toDate':'2026-12-31',
-            'from':'2026-01-01','to':'2026-12-31'
-          }
-          base='https://api.cbb.com.br'
-          candidates=[
-            f"/v1/matches?competitionId={cid}&league={org}&fromDate=2026-01-01&toDate=2026-12-31",
-            f"/v1/matches?competitionId={cid}&org={org}&fromDate=2026-01-01&toDate=2026-12-31",
-            f"/v1/matches/range?competitionId={cid}&league={org}&fromDate=2026-01-01&toDate=2026-12-31",
-            f"/v1/matches/by-range?competitionId={cid}&league={org}&fromDate=2026-01-01&toDate=2026-12-31",
-            f"/v1/leagues-collections/external-competitions/{org}/{cid}/matches?fromDate=2026-01-01&toDate=2026-12-31",
-            f"/v1/leagues-collections/external-competitions/{org}/{cid}/schedule?fromDate=2026-01-01&toDate=2026-12-31",
-            f"/v1/leagues-collections/external-competitions/{org}/{cid}?fromDate=2026-01-01&toDate=2026-12-31",
+          import pathlib, urllib.request, urllib.error, urllib.parse, json
+          base='https://api.cbb.com.br/v1/matches/range'
+          cid='a0c20e2d-5283-11ef-bfb0-df3fdaddb2d0'
+          variants=[
+            {'competitionId':cid,'org':'fpb','fromDate':'2026-01-01','toDate':'2026-12-31'},
+            {'competitionId':cid,'org':'fpb','from':'2026-01-01','to':'2026-12-31'},
+            {'competitionId':cid,'league':'fpb','from':'2026-01-01','to':'2026-12-31'},
+            {'competitionId':cid,'league':'fpb','startDate':'2026-01-01','endDate':'2026-12-31'},
+            {'competitionId':cid,'org':'fpb','startDate':'2026-01-01','endDate':'2026-12-31'},
+            {'competition_id':cid,'org':'fpb','from_date':'2026-01-01','to_date':'2026-12-31'},
+            {'competition':cid,'org':'fpb','from':'2026-01-01','to':'2026-12-31'},
+            {'competition':cid,'league':'fpb','from':'2026-01-01','to':'2026-12-31'},
+            {'competitionId':cid,'provider':'fpb','fromDate':'2026-01-01','toDate':'2026-12-31'},
+            {'competitionId':cid,'organization':'fpb','fromDate':'2026-01-01','toDate':'2026-12-31'},
+            {'competitionId':cid,'source':'fpb','fromDate':'2026-01-01','toDate':'2026-12-31'},
+            {'competitionId':cid,'league':'fpb','dateFrom':'2026-01-01','dateTo':'2026-12-31'},
+            {'competitionId':cid,'org':'fpb','dateFrom':'2026-01-01','dateTo':'2026-12-31'},
+            {'competitionId':cid,'org':'fpb','start':'2026-01-01','end':'2026-12-31'},
           ]
           report=[]
-          import urllib.request, urllib.error
-          for idx,path in enumerate(candidates):
-              url=base+path
+          for i,q in enumerate(variants):
+              url=base+'?'+urllib.parse.urlencode(q)
               req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 ARCO-Analytics','Accept':'application/json'})
               try:
                   with urllib.request.urlopen(req,timeout=20) as resp:
-                      body=resp.read()
-                      code=resp.status
+                      body=resp.read(); code=resp.status
               except urllib.error.HTTPError as e:
                   code=e.code; body=e.read()
               except Exception as e:
                   code='ERR'; body=str(e).encode()
-              pathlib.Path(f'out/candidate-{idx}.txt').write_bytes(body)
-              report.append(f'{idx} HTTP {code} {url} bytes={len(body)}')
-          pathlib.Path('out/candidates.txt').write_text('\n'.join(report))
+              pathlib.Path(f'out/{i}.txt').write_bytes(body)
+              preview=body[:500].decode(errors='replace').replace('\n',' ')
+              report.append({'i':i,'code':code,'bytes':len(body),'query':q,'preview':preview})
+          pathlib.Path('out/report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print(json.dumps(report,ensure_ascii=False,indent=2))
           PY
-          {
-            echo '=== SUB16 COMPETITIONS ==='
-            cat out/sub16-competitions.json
-            echo
-            echo '=== CANDIDATES ==='
-            cat out/candidates.txt
-            echo
-            echo '=== PROBES ==='
-            cat out/probe-status.txt
-            echo
-            echo '=== CANDIDATE PREVIEWS ==='
-            shopt -s nullglob
-            files=(out/candidate-*.txt)
-            for f in "${files[@]}"; do echo "--- $f"; head -c 2000 "$f"; echo; done
-          } > out/report.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: cbb-endpoint-inspection
+          name: cbb-range-probe
           path: out/
           retention-days: 1
