@@ -157,23 +157,60 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Builder(builder: (context) {
-          final mine = [for (final f in state.feeds) ...state.myTeamGames(f)]..sort(LeagueFeed.compareGames);
           final now = DateTime.now();
           final today = DateTime(now.year, now.month, now.day);
-          final next = mine.where((g) => g.isLive || (!g.isFinal && g.scheduledAt != null && !g.scheduledAt!.isBefore(today))).firstOrNull;
+          final mine = <LeagueGame>[
+            for (final f in state.feeds)
+              ...state.myTeamGames(f).where((g) => g.scheduledAt == null || g.scheduledAt!.year == now.year),
+          ]..sort(LeagueFeed.compareGames);
+
+          final upcoming = mine
+              .where((g) => g.isLive || (!g.isFinal && g.scheduledAt != null && !g.scheduledAt!.isBefore(today)))
+              .toList();
+          final upcomingIds = upcoming.map((g) => g.id).toSet();
+          final completed = mine.where((g) => !upcomingIds.contains(g.id)).toList();
+
+          int seasonCount(LeagueFeed feed) => state
+              .myTeamGames(feed)
+              .where((g) => g.scheduledAt == null || g.scheduledAt!.year == now.year)
+              .length;
+
+          Widget label(String text) => Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 4),
+                child: Text(text, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white70)),
+              );
+
           return SectionCard(
             title: 'Minha equipe nas competições',
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
                 for (final f in state.feeds) ...[
-                  Expanded(child: _MiniStat(label: f.league, value: gamesCount(state.myTeamGames(f).length), warning: f.error != null)),
+                  Expanded(child: _MiniStat(label: f.league, value: gamesCount(seasonCount(f)), warning: f.error != null)),
                   if (f != state.feeds.last) const SizedBox(width: 10),
                 ],
               ]),
-              if (next != null) ...[
-                const SizedBox(height: 10),
-                LeagueGameTile(game: next),
-              ],
+              const SizedBox(height: 8),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                initiallyExpanded: true,
+                title: Text('Temporada ${now.year}', style: const TextStyle(fontWeight: FontWeight.w900)),
+                subtitle: Text(
+                  mine.isEmpty ? 'Sincronize a FPB para carregar os jogos do Monstrinho.' : '${gamesCount(mine.length)} do ${state.coach.team}',
+                  style: const TextStyle(color: Colors.white60),
+                ),
+                children: [
+                  if (mine.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: Text('Nenhum jogo da temporada foi encontrado ainda.', style: TextStyle(color: Colors.white70)),
+                    ),
+                  if (upcoming.isNotEmpty) label('Próximos jogos'),
+                  for (final g in upcoming) LeagueGameTile(game: g),
+                  if (completed.isNotEmpty) label('Jogos realizados'),
+                  for (final g in completed) LeagueGameTile(game: g),
+                ],
+              ),
             ]),
           );
         }),
