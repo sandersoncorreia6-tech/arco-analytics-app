@@ -1,5 +1,19 @@
 # ARCO Analytics — Integração FPB e LBC
 
+## Fonte estruturada (calendário oficial)
+
+A aba **Estatísticas → Online** da FPB é alimentada pelo calendário da CBB
+(`www.cbb.com.br/calendario`), que expõe cada competição ("SUB 16M 2026", "1ª DIVISÃO
+MASCULINA 2026"...) com equipes, placar, status, local, horário e ids. O
+`FpbProvider` (`lib/data/providers/fpb_provider.dart`) é o único ponto que conhece esse
+formato:
+
+- chama a Server Action do calendário com `competitionId`, `org: fpb` e o período da temporada;
+- se a CBB republicar o site e a consulta mudar, redescobre o id automaticamente nos scripts;
+- competições adicionais podem ser informadas em Mais → Minha equipe (link/UUID).
+
+Páginas e notícias da FPB continuam como reserva para categorias sem calendário estruturado.
+
 ## Arquitetura
 
 ```
@@ -7,12 +21,12 @@ LeagueSource (FPB, LBC)  →  LeagueSyncService  →  ScheduleParser  →  Leagu
         páginas públicas       busca + diagnóstico     interpretação      modelo único
 ```
 
-- `lib/services/league_sync_service.dart` — configuração de cada liga, coleta e
+- `lib/data/sources/league_sync_service.dart` — configuração de cada liga, coleta e
   resultado por página (`SourceAttempt`) para o diagnóstico.
-- `lib/services/schedule_parser.dart` — interpretação tolerante a mudanças de layout.
+- `lib/data/sources/schedule_parser.dart` — interpretação tolerante a mudanças de layout.
   Não depende de classes CSS: lê dados estruturados (JSON-LD schema.org, JSON de
   Next.js/APIs), linhas de tabela, itens de lista, cards e texto livre.
-- `lib/services/source_fetcher.dart` — GET com timeout de 15 s, nova tentativa em
+- `lib/data/sources/source_fetcher.dart` — GET com timeout de 15 s, nova tentativa em
   falhas transitórias e mensagens de erro em português.
 - `lib/state/league_feed.dart` — estado de cada liga, cache, intervalo adaptativo.
 
@@ -31,11 +45,11 @@ LeagueSource (FPB, LBC)  →  LeagueSyncService  →  ScheduleParser  →  Leagu
 
 ## Estatística completa (FIBA LiveStats)
 
-- `lib/services/fiba_livestats.dart` — encontra ids de partidas em links/iframes/scripts
+- `lib/data/sources/fiba_livestats.dart` — encontra ids de partidas em links/iframes/scripts
   (`fibalivestats…/u/<ORG>/<id>`, `geniussports…/match/<id>`, `…/data/<id>/data.json`) e
   converte o `data.json` público da partida em `GameBoxScore` (equipes, jogadores,
   arremessos com coordenadas normalizadas para meia quadra e lance a lance).
-- `lib/services/stats_aggregator.dart` — soma a temporada por equipe e jogador.
+- `lib/domain/services/stats_aggregator.dart` — soma a temporada por equipe e jogador.
 - No app, as partidas descobertas são baixadas automaticamente (no máximo 40 por vez, 4 em
   paralelo); jogos ao vivo são atualizados a cada ~30 s. Na Web, use o proxy `api/livestats`.
 - Se a liga usar outro sistema de estatística, o link colado não terá id reconhecido e o app

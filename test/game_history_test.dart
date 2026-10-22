@@ -1,27 +1,36 @@
 import 'package:arco_analytics/data/repositories/game_repository.dart';
-import 'package:arco_analytics/models/coach_profile.dart';
-import 'package:arco_analytics/models/league_game.dart';
-import 'package:arco_analytics/services/league_sync_service.dart';
+import 'package:arco_analytics/domain/models/coach_profile.dart';
+import 'package:arco_analytics/domain/models/league_game.dart';
+import 'package:arco_analytics/data/sources/league_sync_service.dart';
 import 'package:arco_analytics/state/league_feed.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-LeagueGame g(String id, String home, String away, DateTime? date,
-        {int? hs, int? as_, String status = 'AGENDADO', String cat = 'SUB 16 M', String ext = '', String comp = ''}) =>
-    LeagueGame(
-      id: id,
-      league: 'FPB',
-      homeTeam: home,
-      awayTeam: away,
-      homeScore: hs,
-      awayScore: as_,
-      status: status,
-      competition: cat,
-      scheduledAt: date,
-      fetchedAt: DateTime(2026, 10, 22),
-      sourceUrl: 'https://fpb.com.br/online/',
-      externalId: ext,
-      competitionName: comp,
-    );
+LeagueGame g(
+  String id,
+  String home,
+  String away,
+  DateTime? date, {
+  int? hs,
+  int? as_,
+  String status = 'AGENDADO',
+  String cat = 'SUB 16 M',
+  String ext = '',
+  String comp = '',
+}) => LeagueGame(
+  id: id,
+  league: 'FPB',
+  homeTeam: home,
+  awayTeam: away,
+  homeScore: hs,
+  awayScore: as_,
+  status: status,
+  competition: cat,
+  scheduledAt: date,
+  fetchedAt: DateTime(2026, 10, 22),
+  sourceUrl: 'https://fpb.com.br/online/',
+  externalId: ext,
+  competitionName: comp,
+);
 
 LeagueSyncResult r(List<LeagueGame> games) => LeagueSyncResult(games: games, fetchedAt: DateTime(2026, 10, 22), attempts: const []);
 

@@ -1,18 +1,18 @@
-import '../../models/coach_profile.dart';
-import '../../models/game.dart';
-import '../../models/league_game.dart';
-import '../../services/schedule_parser.dart';
+import 'package:arco_analytics/domain/models/coach_profile.dart';
+import 'package:arco_analytics/domain/models/game.dart';
+import 'package:arco_analytics/domain/models/league_game.dart';
+import 'package:arco_analytics/data/sources/schedule_parser.dart';
 
 /// Visões da área "Jogos" do treinador.
 enum GameView { upcoming, recent, all, season }
 
 extension GameViewLabel on GameView {
   String get label => switch (this) {
-        GameView.upcoming => 'Próximos',
-        GameView.recent => 'Últimos',
-        GameView.all => 'Todos',
-        GameView.season => 'Temporada',
-      };
+    GameView.upcoming => 'Próximos',
+    GameView.recent => 'Últimos',
+    GameView.all => 'Todos',
+    GameView.season => 'Temporada',
+  };
 }
 
 /// Filtros combináveis da lista de jogos. Campos nulos/vazios = sem filtro.
@@ -29,28 +29,29 @@ class GameFilter {
   final String result;
   final String opponent;
 
-  const GameFilter({
-    this.season = '',
-    this.category = '',
-    this.competition = '',
-    this.month,
-    this.home,
-    this.result = '',
-    this.opponent = '',
-  });
+  const GameFilter({this.season = '', this.category = '', this.competition = '', this.month, this.home, this.result = '', this.opponent = ''});
 
   bool get isEmpty => season.isEmpty && category.isEmpty && competition.isEmpty && month == null && home == null && result.isEmpty && opponent.isEmpty;
 
-  GameFilter copyWith({String? season, String? category, String? competition, int? month, bool clearMonth = false, bool? home, bool clearHome = false, String? result, String? opponent}) =>
-      GameFilter(
-        season: season ?? this.season,
-        category: category ?? this.category,
-        competition: competition ?? this.competition,
-        month: clearMonth ? null : (month ?? this.month),
-        home: clearHome ? null : (home ?? this.home),
-        result: result ?? this.result,
-        opponent: opponent ?? this.opponent,
-      );
+  GameFilter copyWith({
+    String? season,
+    String? category,
+    String? competition,
+    int? month,
+    bool clearMonth = false,
+    bool? home,
+    bool clearHome = false,
+    String? result,
+    String? opponent,
+  }) => GameFilter(
+    season: season ?? this.season,
+    category: category ?? this.category,
+    competition: competition ?? this.competition,
+    month: clearMonth ? null : (month ?? this.month),
+    home: clearHome ? null : (home ?? this.home),
+    result: result ?? this.result,
+    opponent: opponent ?? this.opponent,
+  );
 }
 
 /// Partida vista pelo treinador: mandante/visitante, adversário e resultado.
@@ -179,18 +180,18 @@ class GameRepository {
 
   /// Converte um jogo do scout ao vivo em registro de partida.
   static LeagueGame fromScout(Game g, CoachProfile coach, String id) => LeagueGame(
-        id: id,
-        league: 'SCOUT',
-        homeTeam: coach.team.isEmpty ? coach.club : coach.team,
-        awayTeam: g.opponent,
-        homeScore: g.ourScore,
-        awayScore: g.opponentScore,
-        competition: coach.category,
-        status: 'FINAL',
-        scheduledAt: g.date,
-        fetchedAt: g.date,
-        sourceUrl: '',
-        seasonId: g.date.year.toString(),
-        competitionName: 'Scout ARCO',
-      );
+    id: id,
+    league: 'SCOUT',
+    homeTeam: coach.team.isEmpty ? coach.club : coach.team,
+    awayTeam: g.opponent,
+    homeScore: g.ourScore,
+    awayScore: g.opponentScore,
+    competition: coach.category,
+    status: 'FINAL',
+    scheduledAt: g.date,
+    fetchedAt: g.date,
+    sourceUrl: '',
+    seasonId: g.date.year.toString(),
+    competitionName: 'Scout ARCO',
+  );
 }

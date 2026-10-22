@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:arco_analytics/data/providers/fpb_provider.dart';
-import 'package:arco_analytics/models/coach_profile.dart';
-import 'package:arco_analytics/services/league_sync_service.dart';
-import 'package:arco_analytics/services/source_fetcher.dart';
+import 'package:arco_analytics/domain/models/coach_profile.dart';
+import 'package:arco_analytics/data/sources/league_sync_service.dart';
+import 'package:arco_analytics/data/sources/source_fetcher.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -35,9 +35,7 @@ void main() {
         final action = req.headers['Next-Action']!;
         posts.add(action);
         expect(jsonDecode(req.body)[0]['org'], 'fpb');
-        return action == 'abcdef0123456789abcdef0123456789ab'
-            ? http.Response.bytes(utf8.encode(_rsc), 200)
-            : http.Response('not found', 404);
+        return action == 'abcdef0123456789abcdef0123456789ab' ? http.Response.bytes(utf8.encode(_rsc), 200) : http.Response('not found', 404);
       }
       if (req.url.path == '/calendario') {
         return http.Response('<script src="/_next/static/chunks/app/calendario/page-1.js"></script>', 200);

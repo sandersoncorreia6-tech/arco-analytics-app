@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:arco_analytics/analysis/analyst.dart';
-import 'package:arco_analytics/analysis/game_analysis.dart';
-import 'package:arco_analytics/analysis/lineups.dart';
-import 'package:arco_analytics/analysis/reports.dart';
-import 'package:arco_analytics/analysis/scout_adapter.dart';
-import 'package:arco_analytics/analysis/season_analysis.dart';
-import 'package:arco_analytics/data/mock_repository.dart';
-import 'package:arco_analytics/models/game.dart';
-import 'package:arco_analytics/models/play_event.dart';
-import 'package:arco_analytics/services/fiba_livestats.dart';
+import 'package:arco_analytics/domain/analysis/analyst.dart';
+import 'package:arco_analytics/domain/analysis/game_analysis.dart';
+import 'package:arco_analytics/domain/analysis/lineups.dart';
+import 'package:arco_analytics/domain/analysis/reports.dart';
+import 'package:arco_analytics/domain/analysis/scout_adapter.dart';
+import 'package:arco_analytics/domain/analysis/season_analysis.dart';
+import 'package:arco_analytics/data/demo/mock_repository.dart';
+import 'package:arco_analytics/domain/models/game.dart';
+import 'package:arco_analytics/domain/models/play_event.dart';
+import 'package:arco_analytics/data/sources/fiba_livestats.dart';
 import 'package:arco_analytics/services/report_export.dart';
-import 'package:arco_analytics/services/stats_aggregator.dart';
+import 'package:arco_analytics/domain/services/stats_aggregator.dart';
 import 'package:arco_analytics/state/app_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -80,8 +80,13 @@ void main() {
   test('quintetos reconstruídos pelas substituições do lance a lance', () {
     final data = jsonDecode(File('test/fixtures/fiba_livestats_data.json').readAsStringSync()) as Map<String, dynamic>;
     final pl = data['tm']['1']['pl'] as Map<String, dynamic>;
-    Map<String, dynamic> extra(String first, String last) =>
-        {...pl['1'] as Map<String, dynamic>, 'firstName': first, 'familyName': last, 'starter': 1, 'sMinutes': '20:00'};
+    Map<String, dynamic> extra(String first, String last) => {
+      ...pl['1'] as Map<String, dynamic>,
+      'firstName': first,
+      'familyName': last,
+      'starter': 1,
+      'sMinutes': '20:00',
+    };
     pl['5'] = extra('ANA', 'UM');
     pl['6'] = extra('BIA', 'DOIS');
     pl['7'] = extra('CAIO', 'TRES');

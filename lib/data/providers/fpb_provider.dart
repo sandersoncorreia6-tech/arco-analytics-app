@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../../services/league_sync_service.dart';
-import '../../services/schedule_parser.dart';
-import '../../services/source_fetcher.dart';
-import 'competition_provider.dart';
+import 'package:arco_analytics/data/sources/league_sync_service.dart';
+import 'package:arco_analytics/data/sources/schedule_parser.dart';
+import 'package:arco_analytics/data/sources/source_fetcher.dart';
+import 'package:arco_analytics/data/providers/competition_provider.dart';
 
 /// Federação Paulista de Basketball.
 ///
@@ -14,9 +14,7 @@ import 'competition_provider.dart';
 /// forma estruturada (equipes, placar, status, local, horário, ids).
 /// Esta classe é o único ponto do app que conhece esse formato.
 class FpbProvider implements CompetitionProvider {
-  FpbProvider({SourceFetcher? fetcher, Uri Function()? webProxy})
-      : _fetcher = fetcher ?? SourceFetcher(),
-        _webProxy = webProxy;
+  FpbProvider({SourceFetcher? fetcher, Uri Function()? webProxy}) : _fetcher = fetcher ?? SourceFetcher(), _webProxy = webProxy;
 
   final SourceFetcher _fetcher;
   final Uri Function()? _webProxy;
@@ -83,12 +81,12 @@ class FpbProvider implements CompetitionProvider {
 
   Future<FetchedPage> _callAction(String competitionId, int season) async {
     Future<FetchedPage> call(String action) => _fetcher.post(
-          Uri.parse(calendarUrl),
-          headers: {'Accept': 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8', 'Next-Action': action},
-          body: jsonEncode([
-            {'competitionId': competitionId, 'org': 'fpb', 'fromDate': '$season-01-01', 'toDate': '$season-12-31'},
-          ]),
-        );
+      Uri.parse(calendarUrl),
+      headers: {'Accept': 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8', 'Next-Action': action},
+      body: jsonEncode([
+        {'competitionId': competitionId, 'org': 'fpb', 'fromDate': '$season-01-01', 'toDate': '$season-12-31'},
+      ]),
+    );
 
     try {
       final page = await call(scheduleAction);
@@ -109,10 +107,7 @@ class FpbProvider implements CompetitionProvider {
   /// Localiza o id da Server Action `getMatchesByRange` nos scripts do calendário.
   Future<String?> discoverAction() async {
     final page = await _fetcher.get(Uri.parse(calendarUrl));
-    final srcs = RegExp(r'''<script[^>]+src=["']([^"']+\.js)["']''')
-        .allMatches(page.body)
-        .map((m) => Uri.parse(calendarUrl).resolve(m.group(1)!))
-        .toList()
+    final srcs = RegExp(r'''<script[^>]+src=["']([^"']+\.js)["']''').allMatches(page.body).map((m) => Uri.parse(calendarUrl).resolve(m.group(1)!)).toList()
       ..sort((a, b) => _rank(a.toString()).compareTo(_rank(b.toString())));
     for (final src in srcs) {
       try {
@@ -205,23 +200,25 @@ class FpbProvider implements CompetitionProvider {
         _ => 'AGENDADO',
       };
       final hs = score(home), as = score(away);
-      out.add(ParsedGame(
-        homeTeam: homeName,
-        awayTeam: awayName,
-        // Jogo ainda não iniciado vem com "0"/vazio: não é placar.
-        homeScore: status == 'AGENDADO' ? null : hs,
-        awayScore: status == 'AGENDADO' ? null : as,
-        status: status,
-        competition: competition.isEmpty ? competitionRaw : competition,
-        venue: venueName,
-        scheduledAt: scheduledAt,
-        sourceId: (raw['matchId'] ?? raw['id'] ?? '').toString(),
-        competitionId: (raw['competitionId'] ?? '').toString(),
-        competitionName: competitionRaw,
-        homeTeamId: teamId(home),
-        awayTeamId: teamId(away),
-        round: (raw['roundNumber'] ?? raw['round'] ?? raw['phaseName'] ?? '').toString(),
-      ));
+      out.add(
+        ParsedGame(
+          homeTeam: homeName,
+          awayTeam: awayName,
+          // Jogo ainda não iniciado vem com "0"/vazio: não é placar.
+          homeScore: status == 'AGENDADO' ? null : hs,
+          awayScore: status == 'AGENDADO' ? null : as,
+          status: status,
+          competition: competition.isEmpty ? competitionRaw : competition,
+          venue: venueName,
+          scheduledAt: scheduledAt,
+          sourceId: (raw['matchId'] ?? raw['id'] ?? '').toString(),
+          competitionId: (raw['competitionId'] ?? '').toString(),
+          competitionName: competitionRaw,
+          homeTeamId: teamId(home),
+          awayTeamId: teamId(away),
+          round: (raw['roundNumber'] ?? raw['round'] ?? raw['phaseName'] ?? '').toString(),
+        ),
+      );
     }
     return out;
   }

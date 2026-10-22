@@ -1,5 +1,5 @@
-import '../../services/league_sync_service.dart';
-import '../../services/schedule_parser.dart';
+import 'package:arco_analytics/data/sources/league_sync_service.dart';
+import 'package:arco_analytics/data/sources/schedule_parser.dart';
 
 /// Competição numa fonte oficial (ex.: "SUB 16M 2026" da FPB).
 class CompetitionRef {

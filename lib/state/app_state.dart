@@ -2,26 +2,26 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../data/mock_repository.dart';
-import '../models/game.dart';
-import '../models/coach_profile.dart';
-import '../models/league_game.dart';
-import '../models/live_game_session.dart';
-import '../models/play_event.dart';
-import '../models/player.dart';
-import '../models/box_score.dart';
-import '../analysis/scout_adapter.dart';
-import '../data/cloud/cloud_api.dart';
-import '../data/cloud/cloud_config.dart';
-import '../data/cloud/cloud_mapper.dart';
-import '../data/cloud/cloud_sync.dart';
-import '../data/repositories/game_repository.dart';
-import '../services/fiba_livestats.dart';
-import '../services/league_sync_service.dart';
-import '../services/source_fetcher.dart';
-import '../services/stats_aggregator.dart';
-import '../services/stats_sync_service.dart';
-import 'league_feed.dart';
+import 'package:arco_analytics/data/demo/mock_repository.dart';
+import 'package:arco_analytics/domain/models/game.dart';
+import 'package:arco_analytics/domain/models/coach_profile.dart';
+import 'package:arco_analytics/domain/models/league_game.dart';
+import 'package:arco_analytics/domain/models/live_game_session.dart';
+import 'package:arco_analytics/domain/models/play_event.dart';
+import 'package:arco_analytics/domain/models/player.dart';
+import 'package:arco_analytics/domain/models/box_score.dart';
+import 'package:arco_analytics/domain/analysis/scout_adapter.dart';
+import 'package:arco_analytics/data/cloud/cloud_api.dart';
+import 'package:arco_analytics/data/cloud/cloud_config.dart';
+import 'package:arco_analytics/data/cloud/cloud_mapper.dart';
+import 'package:arco_analytics/data/cloud/cloud_sync.dart';
+import 'package:arco_analytics/data/repositories/game_repository.dart';
+import 'package:arco_analytics/data/sources/fiba_livestats.dart';
+import 'package:arco_analytics/data/sources/league_sync_service.dart';
+import 'package:arco_analytics/data/sources/source_fetcher.dart';
+import 'package:arco_analytics/domain/services/stats_aggregator.dart';
+import 'package:arco_analytics/data/sources/stats_sync_service.dart';
+import 'package:arco_analytics/state/league_feed.dart';
 
 class AppState extends ChangeNotifier with WidgetsBindingObserver {
   AppState() {
@@ -45,6 +45,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void notifyListeners() {
     if (!_disposed) super.notifyListeners();
   }
+
   bool ready = false;
 
   bool loggedIn = false;
@@ -146,10 +147,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     feed.lastAttemptAt = DateTime.now();
     if (!silent) notifyListeners();
     try {
-      final result = await feed.service.fetch(
-        extraPages: feed.extraPages,
-        competitionIds: feed.league == coach.league ? coach.competitionIds : const [],
-      );
+      final result = await feed.service.fetch(extraPages: feed.extraPages, competitionIds: feed.league == coach.league ? coach.competitionIds : const []);
       feed.apply(result);
       await _saveFeed(feed);
       _cloudEnqueueLeagueGames();
@@ -210,8 +208,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Equipes do treinador logado (ex.: todas as categorias do Tupã).
-  List<TeamSeason> get myTeamSeasons => teamSeasons.values.where((t) => coach.isMyTeam(t.name)).toList()
-    ..sort((a, b) => b.games.compareTo(a.games));
+  List<TeamSeason> get myTeamSeasons => teamSeasons.values.where((t) => coach.isMyTeam(t.name)).toList()..sort((a, b) => b.games.compareTo(a.games));
 
   List<GameBoxScore> get boxScoreList => boxScores.values.toList()
     ..sort((a, b) {
@@ -356,8 +353,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Jogos da equipe do treinador logado (sem diferenciar acentos).
-  List<LeagueGame> myTeamGames(LeagueFeed feed) =>
-      feed.games.where(coach.isMyGame).toList();
+  List<LeagueGame> myTeamGames(LeagueFeed feed) => feed.games.where(coach.isMyGame).toList();
 
   void _restoreFeed(SharedPreferences prefs, LeagueFeed feed) {
     final synced = prefs.getString(feed.syncKey);
@@ -371,11 +367,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final data = jsonDecode(raw) as List<dynamic>;
       feed.games
         ..clear()
-        ..addAll(data.map((item) => LeagueGame.fromJson(
-              (item as Map).cast<String, dynamic>(),
-              league: feed.league,
-              fallbackUrl: feed.source.officialUrl,
-            )));
+        ..addAll(data.map((item) => LeagueGame.fromJson((item as Map).cast<String, dynamic>(), league: feed.league, fallbackUrl: feed.source.officialUrl)));
       feed.sort();
     } catch (_) {
       // Cache corrompido ou de versão incompatível: será refeito na próxima sincronização.
@@ -400,10 +392,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Histórico completo: FPB + LBC + scout do ARCO, sem duplicatas.
   GameRepository get gameRepository => GameRepository([
-        for (final f in feeds) ...f.games,
-        for (final g in games)
-          if (g.events.isNotEmpty) GameRepository.fromScout(g, coach, scoutVideoKey(g)),
-      ]);
+    for (final f in feeds) ...f.games,
+    for (final g in games)
+      if (g.events.isNotEmpty) GameRepository.fromScout(g, coach, scoutVideoKey(g)),
+  ]);
 
   /// Todos os jogos da equipe do treinador (clube + categoria + temporada).
   List<CoachGame> get coachGames => gameRepository.forCoach(coach);
@@ -495,7 +487,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Primeiro acesso: clube → equipe/categoria → temporada.
-  Future<String?> cloudCreateClub({required String club, required String city, required String team, required String category, required String season, required List<String> keywords}) async {
+  Future<String?> cloudCreateClub({
+    required String club,
+    required String city,
+    required String team,
+    required String category,
+    required String season,
+    required List<String> keywords,
+  }) async {
     try {
       await cloud.createClub(clubName: club, city: city, teamName: team, category: category, season: season);
       await updateCoach(coach.copyWith(club: club, city: city, team: team, category: category, season: season, teamKeywords: keywords));
@@ -512,13 +511,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _applyCloudClub() async {
     final c = cloud.club!;
     final name = cloud.session?.name ?? '';
-    await updateCoach(coach.copyWith(
-      name: name.isEmpty ? null : name,
-      club: c.clubName,
-      city: c.city,
-      team: c.teamName.isEmpty ? null : c.teamName,
-      category: c.category.isEmpty ? null : c.category,
-    ));
+    await updateCoach(
+      coach.copyWith(
+        name: name.isEmpty ? null : name,
+        club: c.clubName,
+        city: c.city,
+        team: c.teamName.isEmpty ? null : c.teamName,
+        category: c.category.isEmpty ? null : c.category,
+      ),
+    );
   }
 
   /// Traz da nuvem o que foi feito em outro aparelho: elenco, jogos do scout,
@@ -581,8 +582,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     for (final g in games.where((g) => g.events.isNotEmpty)) {
       final key = scoutVideoKey(g);
-      cloud.enqueue('game:scout:$key', 'games', 'club_id,source,external_id',
-          CloudMapper.scoutGame(g, key, coach, _cloudTeamId, videoUrl: videoLinks[key], videoOffset: videoOffsets[key]));
+      cloud.enqueue(
+        'game:scout:$key',
+        'games',
+        'club_id,source,external_id',
+        CloudMapper.scoutGame(g, key, coach, _cloudTeamId, videoUrl: videoLinks[key], videoOffset: videoOffsets[key]),
+      );
     }
   }
 
@@ -729,12 +734,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void addPlayer({required String name, required String position, required int number}) {
-    players.add(Player(
-      id: 'p${DateTime.now().microsecondsSinceEpoch}',
-      name: name,
-      position: position,
-      number: number,
-    ));
+    players.add(Player(id: 'p${DateTime.now().microsecondsSinceEpoch}', name: name, position: position, number: number));
     notifyListeners();
     _saveTeam();
   }
@@ -757,12 +757,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool startGame(String opponent) {
     if (opponent.trim().isEmpty || players.length < 5) return false;
     final starters = players.take(5).map((p) => p.id).toList();
-    activeGame = LiveGameSession(
-      opponent: opponent.trim(),
-      startedAt: DateTime.now(),
-      lineupIds: starters,
-      selectedPlayerId: starters.first,
-    );
+    activeGame = LiveGameSession(opponent: opponent.trim(), startedAt: DateTime.now(), lineupIds: starters, selectedPlayerId: starters.first);
     _liveChanged();
     return true;
   }
@@ -811,9 +806,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     pendingTag = null;
     final id = playerId ?? game.selectedPlayerId;
 
-    if (type == PlayEventType.opponentOne ||
-        type == PlayEventType.opponentTwo ||
-        type == PlayEventType.opponentThree) {
+    if (type == PlayEventType.opponentOne || type == PlayEventType.opponentTwo || type == PlayEventType.opponentThree) {
       final points = type == PlayEventType.opponentOne ? 1 : (type == PlayEventType.opponentTwo ? 2 : 3);
       game.opponentScore += points;
       game.events.add(PlayEvent(type: type, period: game.period, timestamp: DateTime.now(), lineupIds: List<String>.from(game.lineupIds), tag: tag));
@@ -825,19 +818,31 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final stat = game.playerStats.putIfAbsent(id, PlayerGameStats.new);
     switch (type) {
       case PlayEventType.twoMade:
-        stat.points += 2; stat.fgm++; stat.fga++; game.ourScore += 2;
+        stat.points += 2;
+        stat.fgm++;
+        stat.fga++;
+        game.ourScore += 2;
         break;
       case PlayEventType.twoMiss:
         stat.fga++;
         break;
       case PlayEventType.threeMade:
-        stat.points += 3; stat.fgm++; stat.fga++; stat.threePm++; stat.threePa++; game.ourScore += 3;
+        stat.points += 3;
+        stat.fgm++;
+        stat.fga++;
+        stat.threePm++;
+        stat.threePa++;
+        game.ourScore += 3;
         break;
       case PlayEventType.threeMiss:
-        stat.fga++; stat.threePa++;
+        stat.fga++;
+        stat.threePa++;
         break;
       case PlayEventType.freeThrowMade:
-        stat.points++; stat.ftm++; stat.fta++; game.ourScore++;
+        stat.points++;
+        stat.ftm++;
+        stat.fta++;
+        game.ourScore++;
         break;
       case PlayEventType.freeThrowMiss:
         stat.fta++;
@@ -868,7 +873,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       case PlayEventType.opponentThree:
         break;
     }
-    game.events.add(PlayEvent(type: type, playerId: id, period: game.period, timestamp: DateTime.now(), lineupIds: List<String>.from(game.lineupIds), tag: tag));
+    game.events.add(
+      PlayEvent(type: type, playerId: id, period: game.period, timestamp: DateTime.now(), lineupIds: List<String>.from(game.lineupIds), tag: tag),
+    );
     _liveChanged();
   }
 
@@ -889,19 +896,31 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (stat == null) return;
     switch (event.type) {
       case PlayEventType.twoMade:
-        stat.points -= 2; stat.fgm--; stat.fga--; game.ourScore -= 2;
+        stat.points -= 2;
+        stat.fgm--;
+        stat.fga--;
+        game.ourScore -= 2;
         break;
       case PlayEventType.twoMiss:
         stat.fga--;
         break;
       case PlayEventType.threeMade:
-        stat.points -= 3; stat.fgm--; stat.fga--; stat.threePm--; stat.threePa--; game.ourScore -= 3;
+        stat.points -= 3;
+        stat.fgm--;
+        stat.fga--;
+        stat.threePm--;
+        stat.threePa--;
+        game.ourScore -= 3;
         break;
       case PlayEventType.threeMiss:
-        stat.fga--; stat.threePa--;
+        stat.fga--;
+        stat.threePa--;
         break;
       case PlayEventType.freeThrowMade:
-        stat.points--; stat.ftm--; stat.fta--; game.ourScore--;
+        stat.points--;
+        stat.ftm--;
+        stat.fta--;
+        game.ourScore--;
         break;
       case PlayEventType.freeThrowMiss:
         stat.fta--;

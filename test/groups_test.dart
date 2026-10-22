@@ -1,4 +1,4 @@
-import 'package:arco_analytics/analysis/lineups.dart';
+import 'package:arco_analytics/domain/analysis/lineups.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 LineupStat l(List<String> names, int seconds, int pf, int pa) {

@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:arco_analytics/services/fiba_livestats.dart';
-import 'package:arco_analytics/services/stats_aggregator.dart';
-import 'package:arco_analytics/widgets/court_shot_chart.dart';
+import 'package:arco_analytics/data/sources/fiba_livestats.dart';
+import 'package:arco_analytics/domain/services/stats_aggregator.dart';
+import 'package:arco_analytics/presentation/widgets/court_shot_chart.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

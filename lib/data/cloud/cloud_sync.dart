@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
-import 'cloud_api.dart';
-import 'cloud_config.dart';
+import 'package:arco_analytics/data/cloud/cloud_api.dart';
+import 'package:arco_analytics/data/cloud/cloud_config.dart';
 
 /// Operação pendente de envio. Operações com a mesma [key] se substituem
 /// (ex.: o scout ao vivo manda só o retrato mais recente).
@@ -16,17 +16,17 @@ class OutboxOp {
   final DateTime createdAt;
   int attempts;
   OutboxOp({required this.key, required this.table, required this.onConflict, required this.row, DateTime? createdAt, this.attempts = 0})
-      : createdAt = createdAt ?? DateTime.now();
+    : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {'k': key, 't': table, 'c': onConflict, 'r': row, 'at': createdAt.toIso8601String(), 'n': attempts};
   factory OutboxOp.fromJson(Map<String, dynamic> m) => OutboxOp(
-        key: m['k'] as String,
-        table: m['t'] as String,
-        onConflict: m['c'] as String,
-        row: (m['r'] as Map).cast<String, dynamic>(),
-        createdAt: DateTime.tryParse(m['at'] as String? ?? ''),
-        attempts: (m['n'] as num?)?.toInt() ?? 0,
-      );
+    key: m['k'] as String,
+    table: m['t'] as String,
+    onConflict: m['c'] as String,
+    row: (m['r'] as Map).cast<String, dynamic>(),
+    createdAt: DateTime.tryParse(m['at'] as String? ?? ''),
+    attempts: (m['n'] as num?)?.toInt() ?? 0,
+  );
 }
 
 /// Clube/equipe ativos do usuário na nuvem.
@@ -53,25 +53,25 @@ class CloudClub {
   bool get canWrite => const {'owner', 'admin', 'coach', 'analyst', 'assistant'}.contains(role);
 
   Map<String, dynamic> toJson() => {
-        'clubId': clubId,
-        'clubName': clubName,
-        'city': city,
-        'role': role,
-        'status': status,
-        'teamId': teamId,
-        'teamName': teamName,
-        'category': category,
-      };
+    'clubId': clubId,
+    'clubName': clubName,
+    'city': city,
+    'role': role,
+    'status': status,
+    'teamId': teamId,
+    'teamName': teamName,
+    'category': category,
+  };
   factory CloudClub.fromJson(Map<String, dynamic> m) => CloudClub(
-        clubId: m['clubId'] as String,
-        clubName: (m['clubName'] as String?) ?? '',
-        city: (m['city'] as String?) ?? '',
-        role: (m['role'] as String?) ?? 'coach',
-        status: (m['status'] as String?) ?? 'trial',
-        teamId: (m['teamId'] as String?) ?? '',
-        teamName: (m['teamName'] as String?) ?? '',
-        category: (m['category'] as String?) ?? '',
-      );
+    clubId: m['clubId'] as String,
+    clubName: (m['clubName'] as String?) ?? '',
+    city: (m['city'] as String?) ?? '',
+    role: (m['role'] as String?) ?? 'coach',
+    status: (m['status'] as String?) ?? 'trial',
+    teamId: (m['teamId'] as String?) ?? '',
+    teamName: (m['teamName'] as String?) ?? '',
+    category: (m['category'] as String?) ?? '',
+  );
 }
 
 /// Login, clube ativo e sincronização offline-first com o Supabase.
@@ -178,10 +178,7 @@ class CloudSync {
   /// Carrega o primeiro clube do usuário (e a equipe principal).
   Future<CloudClub?> loadClub() async {
     final s = await _fresh();
-    final rows = await api.select(s, 'club_members', {
-      'select': 'club_id,role,clubs(id,name,city,status)',
-      'user_id': 'eq.${s.userId}',
-    });
+    final rows = await api.select(s, 'club_members', {'select': 'club_id,role,clubs(id,name,city,status)', 'user_id': 'eq.${s.userId}'});
     if (rows.isEmpty) {
       club = null;
       return null;
@@ -205,17 +202,21 @@ class CloudSync {
   }
 
   /// Primeiro acesso: cria clube → equipe/categoria → temporada.
-  Future<CloudClub> createClub({required String clubName, required String city, required String teamName, required String category, required String season}) async {
+  Future<CloudClub> createClub({
+    required String clubName,
+    required String city,
+    required String teamName,
+    required String category,
+    required String season,
+  }) async {
     final s = await _fresh();
     final clubRow = (await api.upsert(s, 'clubs', [
       {'name': clubName, 'city': city, 'created_by': s.userId},
-    ]))
-        .single;
+    ])).single;
     final clubId = clubRow['id'] as String;
     final teamRow = (await api.upsert(s, 'teams', [
       {'club_id': clubId, 'name': teamName, 'category': category, 'gender': category.endsWith('F') ? 'F' : 'M'},
-    ]))
-        .single;
+    ])).single;
     await api.upsert(s, 'seasons', [
       {'club_id': clubId, 'team_id': teamRow['id'], 'name': season, 'active': true},
     ]);

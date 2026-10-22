@@ -1,4 +1,4 @@
-import 'package:arco_analytics/services/schedule_parser.dart';
+import 'package:arco_analytics/data/sources/schedule_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

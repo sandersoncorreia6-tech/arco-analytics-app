@@ -7,10 +7,7 @@ class CloudConfig {
   final String anonKey;
   const CloudConfig(this.url, this.anonKey);
 
-  static const fromEnvironment = CloudConfig(
-    String.fromEnvironment('ARCO_SUPABASE_URL'),
-    String.fromEnvironment('ARCO_SUPABASE_ANON_KEY'),
-  );
+  static const fromEnvironment = CloudConfig(String.fromEnvironment('ARCO_SUPABASE_URL'), String.fromEnvironment('ARCO_SUPABASE_ANON_KEY'));
 
   bool get enabled => url.startsWith('https://') && anonKey.length > 20;
 

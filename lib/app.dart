@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
-import 'screens/onboarding_screen.dart';
-import 'screens/root_shell.dart';
-import 'state/app_state.dart';
-import 'theme/arco_theme.dart';
+import 'package:arco_analytics/presentation/screens/login_screen.dart';
+import 'package:arco_analytics/presentation/screens/onboarding_screen.dart';
+import 'package:arco_analytics/presentation/screens/root_shell.dart';
+import 'package:arco_analytics/state/app_state.dart';
+import 'package:arco_analytics/presentation/theme/arco_theme.dart';
 
 class ArcoApp extends StatefulWidget {
   const ArcoApp({super.key});
@@ -34,10 +34,10 @@ class _ArcoAppState extends State<ArcoApp> {
           home: !state.ready
               ? const Scaffold(body: Center(child: CircularProgressIndicator()))
               : !state.loggedIn
-                  ? const LoginScreen()
-                  : state.cloud.enabled && state.cloud.club == null
-                      ? const OnboardingScreen()
-                      : const RootShell(),
+              ? const LoginScreen()
+              : state.cloud.enabled && state.cloud.club == null
+              ? const OnboardingScreen()
+              : const RootShell(),
         ),
       ),
     );

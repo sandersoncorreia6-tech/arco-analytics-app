@@ -4,9 +4,9 @@ import 'package:arco_analytics/data/cloud/cloud_api.dart';
 import 'package:arco_analytics/data/cloud/cloud_config.dart';
 import 'package:arco_analytics/data/cloud/cloud_mapper.dart';
 import 'package:arco_analytics/data/cloud/cloud_sync.dart';
-import 'package:arco_analytics/data/mock_repository.dart';
-import 'package:arco_analytics/models/coach_profile.dart';
-import 'package:arco_analytics/models/game.dart';
+import 'package:arco_analytics/data/demo/mock_repository.dart';
+import 'package:arco_analytics/domain/models/coach_profile.dart';
+import 'package:arco_analytics/domain/models/game.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -31,12 +31,18 @@ void main() {
         expect(req.url.queryParameters['grant_type'], 'password');
         expect(jsonDecode(req.body)['email'], 'adriano@tupa.com');
         return http.Response.bytes(
-          utf8.encode(jsonEncode({
-            'access_token': 'tok',
-            'refresh_token': 'ref',
-            'expires_in': 3600,
-            'user': {'id': 'u1', 'email': 'adriano@tupa.com', 'user_metadata': {'full_name': 'Adriano Mião'}},
-          })),
+          utf8.encode(
+            jsonEncode({
+              'access_token': 'tok',
+              'refresh_token': 'ref',
+              'expires_in': 3600,
+              'user': {
+                'id': 'u1',
+                'email': 'adriano@tupa.com',
+                'user_metadata': {'full_name': 'Adriano Mião'},
+              },
+            }),
+          ),
           200,
         );
       }
@@ -44,13 +50,27 @@ void main() {
       if (req.url.path == '/rest/v1/club_members') {
         expect(req.url.queryParameters['user_id'], 'eq.u1');
         return http.Response.bytes(
-            utf8.encode(jsonEncode([
-              {'club_id': 'c1', 'role': 'owner', 'clubs': {'id': 'c1', 'name': 'Tupã / Monstrinho', 'city': 'Tupã', 'status': 'trial'}},
-            ])),
-            200);
+          utf8.encode(
+            jsonEncode([
+              {
+                'club_id': 'c1',
+                'role': 'owner',
+                'clubs': {'id': 'c1', 'name': 'Tupã / Monstrinho', 'city': 'Tupã', 'status': 'trial'},
+              },
+            ]),
+          ),
+          200,
+        );
       }
       if (req.url.path == '/rest/v1/teams') {
-        return http.Response.bytes(utf8.encode(jsonEncode([{'id': 't1', 'name': 'Tupã Sub-16', 'category': 'SUB 16 M'}])), 200);
+        return http.Response.bytes(
+          utf8.encode(
+            jsonEncode([
+              {'id': 't1', 'name': 'Tupã Sub-16', 'category': 'SUB 16 M'},
+            ]),
+          ),
+          200,
+        );
       }
       if (req.url.path == '/rest/v1/games') {
         if (!online) throw http.ClientException('Failed host lookup');

@@ -22,6 +22,12 @@ assinaturas, teste de 14 dias e bloqueio de clientes.
    update profiles set is_platform_admin = true where user_id = (select id from auth.users where email = 'seu@email.com');
    ```
 
+## Depois de configurar
+Os builds passam a incluir a URL e a chave; o app mostra a tela de login real (Entrar, Criar
+conta, Esqueci a senha). No primeiro acesso o treinador cria o clube, a equipe/categoria e a
+temporada. Tudo é salvo no aparelho primeiro e enviado à nuvem quando houver internet
+(Mais → Nuvem e backup mostra o que está pendente).
+
 ## Papéis
 | Papel | Pode |
 |---|---|

@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.9.0+9 — Histórico completo, provedores de liga, login real e arquitetura
+### Corrigido
+- **Área do treinador mostrava só 3 jogos**: eram os jogos de demonstração fixos no código,
+  e cada sincronização substituía a lista pelos jogos da semana. Agora o histórico acumula a
+  temporada inteira (atualiza placar/horário/status, nunca descarta) e os jogos de demonstração
+  não aparecem mais como jogos.
+- Sincronização que terminava com o app fechado gerava erro.
+- Jogos agendados do calendário oficial não mostram mais 0 × 0 como placar.
+
+### Novo
+- Aba **Jogos**: Próximos, Últimos, Todos, Temporada; campanha (V/D, aproveitamento, médias);
+  filtros por temporada, categoria, competição, mês, mandante/visitante, resultado e adversário.
+- Página da partida: ficha completa com ids, **Assistir ao jogo**, página oficial, estatística
+  completa e scout.
+- Registro de partida com gameId, competitionId, seasonId, categoryId, ids das equipes, rodada,
+  fonte e id da estatística online; mesma partida de fontes diferentes vira uma só.
+- Equipe do treinador por clube + categoria + temporada, editável (Mais → Minha equipe).
+- `CompetitionProvider` com `FpbProvider` (calendário estruturado CBB/FPB, com redescoberta
+  automática da consulta quando o site muda) e `LbcProvider`.
+- Login real (Supabase): entrar, criar conta, recuperar senha; primeiro acesso cria clube,
+  equipe/categoria e temporada.
+- Nuvem offline-first: fila local enviada quando há internet; elenco, jogos do scout, scout em
+  andamento e vídeos recuperados em outro aparelho.
+- Tamanho da amostra (BAIXA/MÉDIA/ALTA) em formações e insights; duplas, trios e quartetos;
+  frase de impacto com contexto ("saldo de +12 com A em quadra por 21 min... com B e C").
+- Workflows **ARCO Build/Test** e **ARCO Android Release** (APK + AAB assinados).
+- Código organizado em `presentation/`, `domain/`, `data/` (ver `docs/ARCHITECTURE.md`).
+
 ## 0.8.0+8 — Analista ARCO, relatórios e base da nuvem
 ### Novo
 - **Analista ARCO** (local, offline): responde perguntas do treinador ("de onde erramos?",

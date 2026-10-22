@@ -3,7 +3,15 @@
 Plataforma Flutter/Dart de inteligência estatística para treinadores de basquete.
 **Dado → Contexto → Insight → Decisão**
 
-Versão: `0.8.0+8` • Application ID Android: `com.arcoanalytics.app` (não alterar)
+Versão: `0.9.0+9` • Application ID Android: `com.arcoanalytics.app` (não alterar)
+
+## Novo na 0.9: histórico completo da temporada
+
+A área do treinador mostrava só 3 jogos (os de demonstração). Agora a aba **Jogos** traz
+**todos os jogos da temporada** da equipe — Próximos, Últimos, Todos e Temporada, com filtros —
+a partir do calendário oficial da FPB (via CBB), das páginas da FPB/LBC e do scout do ARCO.
+Login real e nuvem (Supabase) com funcionamento offline já estão prontos; falta configurar o
+projeto. Arquitetura em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Novo na 0.8: Analista ARCO
 
@@ -35,7 +43,7 @@ importado colando o link da página de estatística (botão 🔗 na aba Stats).
 - **App fechando ao abrir** — o script antigo `configure_android_prod.py` trocava o
   `namespace` do Android e o `MainActivity` deixava de ser encontrado. Removido; só o
   `applicationId` é fixado.
-- **Leitura das páginas refeita** (`lib/services/schedule_parser.dart`): o parser antigo
+- **Leitura das páginas refeita** (`lib/data/sources/schedule_parser.dart`): o parser antigo
   colava o texto de células vizinhas (`Tupã78`) e o id do jogo mudava a cada ponto, o que
   apagava o vídeo vinculado. O novo lê tabelas, cards, listas, JSON embutido
   (schema.org/Next.js) e texto livre, e tem testes automatizados.
@@ -53,12 +61,11 @@ Detalhes em [CHANGELOG.md](CHANGELOG.md).
 
 | Plataforma | Como gerar |
 |---|---|
-| Android APK/AAB | workflow **ARCO Build** (automático a cada push) ou `./build_android.sh` |
-| Web/PWA (iPhone, iPad, PC) | workflow **ARCO Build** → artefato `ARCO-Web-PWA` |
-| Windows | **ARCO Build** na `main` ou manual |
-| iOS sem assinatura | **ARCO Build** manual (Run workflow) |
+| Android APK de teste | workflow **ARCO Build/Test** (automático a cada push) ou `./build_android.sh` |
+| Android APK + AAB assinados | workflow **ARCO Android Release** (manual ou tag `v*`) |
+| Web/PWA (iPhone, iPad, PC, Mac) | workflow **ARCO Build/Test** → artefato `ARCO-Web-PWA` |
 
-Baixe os arquivos em **Actions → ARCO Build → (execução) → Artifacts**.
+Baixe os arquivos em **Actions → (workflow) → (execução) → Artifacts**.
 
 ### Assinatura Android
 Com os secrets `ARCO_KEYSTORE_BASE64`, `ARCO_KEYSTORE_PASSWORD`, `ARCO_KEY_ALIAS` e

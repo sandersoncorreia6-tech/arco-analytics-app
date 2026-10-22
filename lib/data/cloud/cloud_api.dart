@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'cloud_config.dart';
+import 'package:arco_analytics/data/cloud/cloud_config.dart';
 
 class CloudException implements Exception {
   final String message;
@@ -37,22 +37,22 @@ class CloudSession {
   bool get expiringSoon => DateTime.now().isAfter(expiresAt.subtract(const Duration(minutes: 2)));
 
   Map<String, dynamic> toJson() => {
-        'access_token': accessToken,
-        'refresh_token': refreshToken,
-        'expires_at': expiresAt.toIso8601String(),
-        'user_id': userId,
-        'email': email,
-        'name': name,
-      };
+    'access_token': accessToken,
+    'refresh_token': refreshToken,
+    'expires_at': expiresAt.toIso8601String(),
+    'user_id': userId,
+    'email': email,
+    'name': name,
+  };
 
   factory CloudSession.fromJson(Map<String, dynamic> m) => CloudSession(
-        accessToken: m['access_token'] as String,
-        refreshToken: m['refresh_token'] as String,
-        expiresAt: DateTime.tryParse(m['expires_at'] as String? ?? '') ?? DateTime.now(),
-        userId: m['user_id'] as String,
-        email: (m['email'] as String?) ?? '',
-        name: (m['name'] as String?) ?? '',
-      );
+    accessToken: m['access_token'] as String,
+    refreshToken: m['refresh_token'] as String,
+    expiresAt: DateTime.tryParse(m['expires_at'] as String? ?? '') ?? DateTime.now(),
+    userId: m['user_id'] as String,
+    email: (m['email'] as String?) ?? '',
+    name: (m['name'] as String?) ?? '',
+  );
 
   /// Resposta do endpoint de token do Supabase Auth.
   factory CloudSession.fromAuth(Map<String, dynamic> m) {
@@ -79,10 +79,10 @@ class CloudApi {
   static const _timeout = Duration(seconds: 20);
 
   Map<String, String> _headers([String? token]) => {
-        'apikey': config.anonKey,
-        'Authorization': 'Bearer ${token ?? config.anonKey}',
-        'Content-Type': 'application/json',
-      };
+    'apikey': config.anonKey,
+    'Authorization': 'Bearer ${token ?? config.anonKey}',
+    'Content-Type': 'application/json',
+  };
 
   Future<dynamic> _send(Future<http.Response> Function() call) async {
     http.Response r;
@@ -105,22 +105,38 @@ class CloudApi {
     if (m.contains('already registered') || m.contains('already exists')) return 'Este e-mail já tem cadastro. Use "Entrar" ou "Esqueci a senha".';
     if (m.contains('email not confirmed')) return 'Confirme o e-mail pelo link enviado antes de entrar.';
     if (m.contains('password') && m.contains('characters')) return 'A senha precisa ter pelo menos 6 caracteres.';
-    if (m.contains('row-level security') || status == 403) return 'Sem permissão para estes dados (clube bloqueado, fora do período de teste ou papel sem acesso).';
+    if (m.contains('row-level security') || status == 403)
+      return 'Sem permissão para estes dados (clube bloqueado, fora do período de teste ou papel sem acesso).';
     return msg.isEmpty ? 'A nuvem respondeu com erro $status.' : msg;
   }
 
   // ------------------------------------------------------------- Auth
 
   Future<CloudSession> signIn(String email, String password) async => CloudSession.fromAuth(
-        (await _send(() => _client.post(config.auth('token', {'grant_type': 'password'}),
-            headers: _headers(), body: jsonEncode({'email': email.trim(), 'password': password})))) as Map<String, dynamic>,
-      );
+    (await _send(
+          () => _client.post(
+            config.auth('token', {'grant_type': 'password'}),
+            headers: _headers(),
+            body: jsonEncode({'email': email.trim(), 'password': password}),
+          ),
+        ))
+        as Map<String, dynamic>,
+  );
 
   /// Cria a conta. Retorna a sessão quando o projeto não exige confirmar e-mail;
   /// `null` quando o usuário precisa clicar no link enviado.
   Future<CloudSession?> signUp(String email, String password, String name) async {
-    final res = await _send(() => _client.post(config.auth('signup'),
-        headers: _headers(), body: jsonEncode({'email': email.trim(), 'password': password, 'data': {'full_name': name.trim()}})));
+    final res = await _send(
+      () => _client.post(
+        config.auth('signup'),
+        headers: _headers(),
+        body: jsonEncode({
+          'email': email.trim(),
+          'password': password,
+          'data': {'full_name': name.trim()},
+        }),
+      ),
+    );
     if (res is Map && res['access_token'] != null) return CloudSession.fromAuth(res.cast<String, dynamic>());
     return null;
   }
@@ -129,9 +145,11 @@ class CloudApi {
       _send(() => _client.post(config.auth('recover'), headers: _headers(), body: jsonEncode({'email': email.trim()})));
 
   Future<CloudSession> refresh(CloudSession s) async => CloudSession.fromAuth(
-        (await _send(() => _client.post(config.auth('token', {'grant_type': 'refresh_token'}),
-            headers: _headers(), body: jsonEncode({'refresh_token': s.refreshToken})))) as Map<String, dynamic>,
-      );
+    (await _send(
+          () => _client.post(config.auth('token', {'grant_type': 'refresh_token'}), headers: _headers(), body: jsonEncode({'refresh_token': s.refreshToken})),
+        ))
+        as Map<String, dynamic>,
+  );
 
   Future<void> signOut(CloudSession s) async {
     try {
@@ -150,14 +168,13 @@ class CloudApi {
 
   /// Insere ou atualiza (upsert) pelas colunas únicas [onConflict].
   Future<List<Map<String, dynamic>>> upsert(CloudSession s, String table, List<Map<String, dynamic>> rows, {String? onConflict}) async {
-    final res = await _send(() => _client.post(
-          config.rest(table, {if (onConflict != null) 'on_conflict': onConflict}),
-          headers: {
-            ..._headers(s.accessToken),
-            'Prefer': '${onConflict != null ? 'resolution=merge-duplicates,' : ''}return=representation',
-          },
-          body: jsonEncode(rows),
-        ));
+    final res = await _send(
+      () => _client.post(
+        config.rest(table, {if (onConflict != null) 'on_conflict': onConflict}),
+        headers: {..._headers(s.accessToken), 'Prefer': '${onConflict != null ? 'resolution=merge-duplicates,' : ''}return=representation'},
+        body: jsonEncode(rows),
+      ),
+    );
     return res is List ? res.map((e) => (e as Map).cast<String, dynamic>()).toList() : const [];
   }
 }

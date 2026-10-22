@@ -1,4 +1,4 @@
-import 'package:arco_analytics/analysis/sample_size.dart';
+import 'package:arco_analytics/domain/analysis/sample_size.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

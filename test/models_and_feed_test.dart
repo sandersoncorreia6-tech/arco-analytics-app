@@ -1,24 +1,24 @@
-import 'package:arco_analytics/data/mock_repository.dart';
-import 'package:arco_analytics/models/coach_profile.dart';
-import 'package:arco_analytics/models/game.dart';
-import 'package:arco_analytics/models/league_game.dart';
-import 'package:arco_analytics/models/live_game_session.dart';
-import 'package:arco_analytics/models/play_event.dart';
-import 'package:arco_analytics/models/player.dart';
-import 'package:arco_analytics/services/league_sync_service.dart';
+import 'package:arco_analytics/data/demo/mock_repository.dart';
+import 'package:arco_analytics/domain/models/coach_profile.dart';
+import 'package:arco_analytics/domain/models/game.dart';
+import 'package:arco_analytics/domain/models/league_game.dart';
+import 'package:arco_analytics/domain/models/live_game_session.dart';
+import 'package:arco_analytics/domain/models/play_event.dart';
+import 'package:arco_analytics/domain/models/player.dart';
+import 'package:arco_analytics/data/sources/league_sync_service.dart';
 import 'package:arco_analytics/state/league_feed.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 LeagueGame _game(String id, {bool manual = false, String status = 'AGENDADO'}) => LeagueGame(
-      id: id,
-      league: 'FPB',
-      homeTeam: 'Tupã',
-      awayTeam: 'Time $id',
-      status: status,
-      fetchedAt: DateTime(2026, 10, 22),
-      sourceUrl: 'https://fpb.com.br/online/',
-      manual: manual,
-    );
+  id: id,
+  league: 'FPB',
+  homeTeam: 'Tupã',
+  awayTeam: 'Time $id',
+  status: status,
+  fetchedAt: DateTime(2026, 10, 22),
+  sourceUrl: 'https://fpb.com.br/online/',
+  manual: manual,
+);
 
 void main() {
   test('jogador, jogo e scout ao vivo sobrevivem à serialização', () {
@@ -37,7 +37,9 @@ void main() {
       ourScore: 80,
       opponentScore: 78,
       selectedPlayerId: 'p1',
-      events: [PlayEvent(type: PlayEventType.threeMade, playerId: 'p1', period: 5, timestamp: DateTime(2026, 10, 22, 21), lineupIds: const ['p1'])],
+      events: [
+        PlayEvent(type: PlayEventType.threeMade, playerId: 'p1', period: 5, timestamp: DateTime(2026, 10, 22, 21), lineupIds: const ['p1']),
+      ],
       playerStats: {'p1': stats},
     );
     final restored = LiveGameSession.fromJson(live.toJson());
@@ -47,25 +49,27 @@ void main() {
     expect(restored.playerStats['p1']!.points, 12);
     expect(restored.playerStats['p1']!.threePm, 2);
 
-    final game = Game.fromJson(Game(
-      opponent: 'Lins',
-      date: DateTime(2026, 10, 1),
-      ourScore: 70,
-      opponentScore: 60,
-      possessions: 70,
-      fgm: 25,
-      fga: 60,
-      threePm: 8,
-      threePa: 20,
-      ftm: 12,
-      fta: 15,
-      turnovers: 10,
-      offensiveRebounds: 9,
-      availableOffensiveRebounds: 35,
-      opponentPoints: 60,
-      playerStats: const {'p1': PlayerStatLine(points: 20, assists: 5)},
-      events: restored.events,
-    ).toJson());
+    final game = Game.fromJson(
+      Game(
+        opponent: 'Lins',
+        date: DateTime(2026, 10, 1),
+        ourScore: 70,
+        opponentScore: 60,
+        possessions: 70,
+        fgm: 25,
+        fga: 60,
+        threePm: 8,
+        threePa: 20,
+        ftm: 12,
+        fta: 15,
+        turnovers: 10,
+        offensiveRebounds: 9,
+        availableOffensiveRebounds: 35,
+        opponentPoints: 60,
+        playerStats: const {'p1': PlayerStatLine(points: 20, assists: 5)},
+        events: restored.events,
+      ).toJson(),
+    );
     expect(game.won, isTrue);
     expect(game.playerStats['p1']!.assists, 5);
     expect(game.events, hasLength(1));
@@ -83,7 +87,13 @@ void main() {
     expect(feed.games.map((g) => g.id), containsAll(['a', 'm']));
     expect(feed.warning, 'vazio');
 
-    feed.apply(LeagueSyncResult(games: [_game('b', status: 'AO VIVO')], fetchedAt: DateTime(2026, 10, 22), attempts: const []));
+    feed.apply(
+      LeagueSyncResult(
+        games: [_game('b', status: 'AO VIVO')],
+        fetchedAt: DateTime(2026, 10, 22),
+        attempts: const [],
+      ),
+    );
     // Histórico: o jogo 'a' continua, mesmo ausente da nova leitura.
     expect(feed.games.map((g) => g.id).toSet(), {'a', 'b', 'm'});
     expect(feed.games.first.id, 'b'); // ao vivo primeiro
@@ -134,11 +144,7 @@ void main() {
     expect(parsed.single.scheduledAt, DateTime(2026, 3, 17, 19));
     expect(parsed.single.venue, 'Ginásio Elias Kenayfes');
 
-    final game = LeagueSyncService(LeagueSource.fpb).toLeagueGame(
-      parsed.single,
-      fetchedAt: DateTime(2026, 10, 22),
-      sourceUrl: LeagueSource.fpb.officialUrl,
-    );
+    final game = LeagueSyncService(LeagueSource.fpb).toLeagueGame(parsed.single, fetchedAt: DateTime(2026, 10, 22), sourceUrl: LeagueSource.fpb.officialUrl);
     expect(CoachProfile.adrianoMiao.isMyGame(game), isTrue);
   });
 

@@ -1,5 +1,5 @@
-import '../models/league_game.dart';
-import '../services/league_sync_service.dart';
+import 'package:arco_analytics/domain/models/league_game.dart';
+import 'package:arco_analytics/data/sources/league_sync_service.dart';
 
 /// Estado de sincronização de uma competição (FPB, LBC...).
 class LeagueFeed {
