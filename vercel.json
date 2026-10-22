@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    {"source": "/api/fpb-online", "destination": "/api/fpb-online"},
+    {"source": "/api/lbc-online", "destination": "/api/lbc-online"}
+  ]
+}

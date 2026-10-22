@@ -1,33 +1,95 @@
 # ARCO Analytics
 
-Repositório oficial de build do ARCO Analytics.
+Plataforma Flutter/Dart de inteligência estatística para treinadores de basquete.
+**Dado → Contexto → Insight → Decisão**
 
-## Fonte oficial atual
+Versão: `0.9.0+9` • Application ID Android: `com.arcoanalytics.app` (não alterar)
 
-A versão usada pelos builds é **ARCO Analytics v0.4 Multiplatform**.
+## Novo na 0.9: histórico completo da temporada
 
-O pacote original é preservado em partes de texto em `.source/v0_4/`. Antes de qualquer compilação, o GitHub Actions reconstrói o ZIP e valida o SHA-256:
+A área do treinador mostrava só 3 jogos (os de demonstração). Agora a aba **Jogos** traz
+**todos os jogos da temporada** da equipe — Próximos, Últimos, Todos e Temporada, com filtros —
+a partir do calendário oficial da FPB (via CBB), das páginas da FPB/LBC e do scout do ARCO.
+Login real e nuvem (Supabase) com funcionamento offline já estão prontos; falta configurar o
+projeto. Arquitetura em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-`247421b7dfbf944fcd7cbd4d7c5a775d7afe01443b322a08d578d0934ee7fd6d`
+## Novo na 0.8: Analista ARCO
 
-Isso impede que um ZIP antigo seja compilado por engano.
+O treinador pergunta e o ARCO responde com números: onde o time mais erra, por que perdeu,
+"e se tivéssemos acertado os lances livres", em qual quarto cai, melhor formação, o que
+treinar, como joga o próximo adversário. Relatórios pós-jogo, pré-jogo e da temporada saem
+em PDF ou direto no WhatsApp. O vídeo do jogo fica sincronizado com o scout (cada ação abre
+no segundo exato) e gera clipes por filtro.
 
-## Builds
+Nuvem: o banco Supabase está pronto e testado (`supabase/`); falta criar o projeto e
+informar URL/chave — passo a passo em [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md).
 
-O workflow **Build ARCO Multiplatform** gera, a partir da mesma fonte:
+## Novo na 0.7: estatísticas completas
 
-- Android APK — instalação direta.
-- Android AAB — pacote para publicação na Google Play; para produção é necessário configurar a assinatura da loja.
-- Web/PWA — funciona em navegadores e pode ser instalado no iPhone/iPad pelo Safari e em PCs compatíveis.
-- Windows — build nativo para PC.
-- iOS unsigned — build técnico sem assinatura. Para TestFlight/App Store ou instalação nativa em iPhone é necessário configurar certificados e conta Apple Developer.
+A aba **Stats** importa a estatística online das partidas (padrão FIBA LiveStats, usado na
+aba Estatística/Online das federações): todas as equipes, todos os jogadores, box score,
+**mapa de arremessos** (onde cada cesta foi feita ou errada) e lance a lance. As partidas são
+descobertas automaticamente nos links das páginas da FPB; qualquer jogo também pode ser
+importado colando o link da página de estatística (botão 🔗 na aba Stats).
 
-O workflow **Build ARCO APK (manual)** continua disponível apenas como atalho manual para gerar o APK Android.
+> A estatística online registra posição apenas para **arremessos**. Rebotes, assistências,
+> roubos etc. aparecem por jogador e no lance a lance, sem coordenada na quadra.
+
+## O que mudou na 0.6 (correção da transmissão FPB/LBC)
+
+- **APK sem acesso à internet** — o APK de release era gerado sem a permissão `INTERNET`
+  no `AndroidManifest.xml`, então nenhuma consulta à FPB/LBC saía do aparelho. A pasta
+  `android/` agora faz parte do repositório, já com a permissão, e o CI falha se ela sumir.
+- **App fechando ao abrir** — o script antigo `configure_android_prod.py` trocava o
+  `namespace` do Android e o `MainActivity` deixava de ser encontrado. Removido; só o
+  `applicationId` é fixado.
+- **Leitura das páginas refeita** (`lib/data/sources/schedule_parser.dart`): o parser antigo
+  colava o texto de células vizinhas (`Tupã78`) e o id do jogo mudava a cada ponto, o que
+  apagava o vídeo vinculado. O novo lê tabelas, cards, listas, JSON embutido
+  (schema.org/Next.js) e texto livre, e tem testes automatizados.
+- **Plano B quando o site muda**: "Colar jogos" (texto copiado do site, PDF ou WhatsApp),
+  "Fontes" (páginas extras do mesmo site, ex.: a tabela da sua categoria) e
+  "Diagnóstico" (status HTTP, tamanho e jogos reconhecidos por página).
+- Mensagens de erro claras, nova tentativa automática, cache que não é apagado quando a
+  fonte falha, sincronização a cada 30 s com jogo ao vivo (3 min sem) e pausa com o app
+  em segundo plano.
+- Elenco, histórico de jogos e **scout em andamento** agora ficam salvos no aparelho.
+
+Detalhes em [CHANGELOG.md](CHANGELOG.md).
+
+## Plataformas
+
+| Plataforma | Como gerar |
+|---|---|
+| Android APK de teste | workflow **ARCO Build/Test** (automático a cada push) ou `./build_android.sh` |
+| Android APK + AAB assinados | workflow **ARCO Android Release** (manual ou tag `v*`) |
+| Web/PWA (iPhone, iPad, PC, Mac) | workflow **ARCO Build/Test** → artefato `ARCO-Web-PWA` |
+
+Baixe os arquivos em **Actions → (workflow) → (execução) → Artifacts**.
+
+### Assinatura Android
+Com os secrets `ARCO_KEYSTORE_BASE64`, `ARCO_KEYSTORE_PASSWORD`, `ARCO_KEY_ALIAS` e
+`ARCO_KEY_PASSWORD` configurados, o artefato sai como `ARCO-Android-APK-assinado`.
+Sem eles, sai `ARCO-Android-APK-teste` (assinado com chave de debug): instala normalmente,
+mas o Android não aceita instalá-lo **por cima** de um APK assinado com outra chave —
+nesse caso desinstale a versão anterior. Veja [docs/PRODUCTION_RELEASES.md](docs/PRODUCTION_RELEASES.md).
+
+## Desenvolvimento
+
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter run
+```
+
+Requer Flutter 3.35 ou mais novo (o CI usa 3.47.7).
+
+## Integrações FPB/LBC
+Ver [docs/FPB_INTEGRATION.md](docs/FPB_INTEGRATION.md). Na Web, o navegador exige o
+proxy `api/*.js` (Vercel); o APK consulta os sites diretamente.
 
 ## Arquivos antigos
-
-Os ZIPs `arco_analytics_build_ready.zip` e `arco_analytics_v0_5_coach_hub.zip` permanecem no histórico do repositório, mas **não são usados pelos workflows oficiais atuais**.
-
-## Como gerar
-
-Abra **Actions** no GitHub e execute **Build ARCO Multiplatform**, ou faça uma alteração na fonte oficial em `.source/v0_4/`.
+`arco_analytics_build_ready.zip` e `arco_analytics_v0_5_coach_hub.zip` são pacotes
+históricos e não são usados nos builds. A antiga fonte v0.4 em base64 (`.source/`)
+foi substituída pelo código-fonte deste repositório.

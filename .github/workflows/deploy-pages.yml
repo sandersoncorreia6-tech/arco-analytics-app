@@ -1,0 +1,39 @@
+name: Deploy ARCO Web no GitHub Pages
+
+# Manual: exige GitHub Pages habilitado (Settings → Pages → Source: GitHub Actions).
+# FPB/LBC na Web precisam do proxy /api: configure a variável ARCO_PROXY_BASE_URL
+# com a URL do deploy Vercel deste repositório.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.7'
+          cache: true
+      - run: flutter pub get
+      - name: Gerar Web para o caminho do repositório
+        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/" --dart-define=ARCO_PROXY_BASE_URL=${{ vars.ARCO_PROXY_BASE_URL }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+      - id: deployment
+        uses: actions/deploy-pages@v4
