@@ -9,44 +9,54 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Call public CBB calendar Server Action
+      - name: Resolve FPB U16 male schedule
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p out
-          URL='https://www.cbb.com.br/calendario'
-          ACTION='7fa44f483f0a4da7815d44be667b13a23d4fc7bc44'
-          BODY='[{"competitionId":"a0c20e2d-5283-11ef-bfb0-df3fdaddb2d0","org":"fpb","fromDate":"2026-01-01","toDate":"2026-12-31"}]'
           python3 - <<'PY'
-          import subprocess, pathlib, json
+          import subprocess, pathlib, json, unicodedata
           url='https://www.cbb.com.br/calendario'
           action='7fa44f483f0a4da7815d44be667b13a23d4fc7bc44'
-          body='[{"competitionId":"a0c20e2d-5283-11ef-bfb0-df3fdaddb2d0","org":"fpb","fromDate":"2026-01-01","toDate":"2026-12-31"}]'
-          trees=[
-            None,
-            '["",{"children":["calendario",{"children":["__PAGE__",{}]}]},null,null,true]',
-            '["",{"children":["calendario",{"children":["__PAGE__?{}",{}]}]},null,null,true]',
-          ]
-          report=[]
-          for i,tree in enumerate(trees):
-              args=['curl','-L','-sS','--max-time','30','-D',f'out/{i}.headers','-o',f'out/{i}.body',
-                    '-X','POST',url,
+          ids={
+            'catalog_male':'a0c20e2d-5283-11ef-bfb0-df3fdaddb2d0',
+            'catalog_female':'323cc7a9-ee0b-11ee-8350-435475889b11',
+          }
+          def norm(s):
+              s=unicodedata.normalize('NFD',s or '')
+              return ''.join(c for c in s if unicodedata.category(c)!='Mn').lower()
+          summary={}
+          for label,cid in ids.items():
+              body=json.dumps([{'competitionId':cid,'org':'fpb','fromDate':'2026-01-01','toDate':'2026-12-31'}],separators=(',',':'))
+              path=f'out/{label}.body'
+              args=['curl','-L','-sS','--max-time','30','-o',path,'-X','POST',url,
                     '-H','User-Agent: Mozilla/5.0 ARCO-Analytics',
                     '-H','Accept: text/x-component',
                     '-H',f'Next-Action: {action}',
                     '-H','Content-Type: text/plain;charset=UTF-8',
                     '--data-binary',body]
-              if tree:
-                  args += ['-H',f'Next-Router-State-Tree: {tree}']
-              p=subprocess.run(args,capture_output=True,text=True)
-              b=pathlib.Path(f'out/{i}.body').read_bytes() if pathlib.Path(f'out/{i}.body').exists() else b''
-              h=pathlib.Path(f'out/{i}.headers').read_text(errors='ignore') if pathlib.Path(f'out/{i}.headers').exists() else ''
-              report.append({'i':i,'returncode':p.returncode,'tree':tree,'bytes':len(b),'hasTupa':b'TUP' in b.upper(),'headers':h[-1200:],'preview':b[:3500].decode(errors='replace')})
-          pathlib.Path('out/report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
-          print(json.dumps(report,ensure_ascii=False,indent=2))
+              subprocess.run(args,check=True)
+              raw=pathlib.Path(path).read_text(errors='replace')
+              line=next((x for x in raw.splitlines() if x.startswith('1:')),None)
+              matches=json.loads(line[2:]) if line else []
+              comps={}
+              tupa=[]
+              for m in matches:
+                  name=m.get('competitionName','')
+                  comps[name]=comps.get(name,0)+1
+                  teams=[c.get('teamName','') for c in m.get('competitors') or []]
+                  if any('tupa' in norm(t) for t in teams):
+                      tupa.append({
+                        'matchId':m.get('matchId'),'matchTime':m.get('matchTime'),
+                        'competitionName':name,'status':m.get('matchStatus'),
+                        'teams':teams,
+                      })
+              summary[label]={'id':cid,'total':len(matches),'competitionNames':comps,'tupaCount':len(tupa),'tupa':tupa}
+          pathlib.Path('out/summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2))
+          print(json.dumps(summary,ensure_ascii=False,indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: cbb-server-action-probe
+          name: fpb-u16-resolution
           path: out/
           retention-days: 1
