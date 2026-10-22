@@ -5,140 +5,181 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/mock_repository.dart';
 import '../models/game.dart';
 import '../models/coach_profile.dart';
-import '../models/lbc_game.dart';
-import '../models/fpb_game.dart';
+import '../models/league_game.dart';
 import '../models/live_game_session.dart';
 import '../models/play_event.dart';
 import '../models/player.dart';
-import '../services/fpb_live_service.dart';
-import '../services/lbc_live_service.dart';
+import '../services/league_sync_service.dart';
+import '../services/source_fetcher.dart';
+import 'league_feed.dart';
 
-class AppState extends ChangeNotifier {
+class AppState extends ChangeNotifier with WidgetsBindingObserver {
   AppState() {
-    _restoreCoachSession();
-    _restoreVideoLinks();
-    _restoreFpbCache();
-    _restoreLbcCache();
-    syncFpbNow();
-    syncLbcNow();
-    _fpbTimer = Timer.periodic(const Duration(seconds: 30), (_) => syncFpbNow(silent: true));
-    _lbcTimer = Timer.periodic(const Duration(seconds: 60), (_) => syncLbcNow(silent: true));
+    WidgetsBinding.instance.addObserver(this);
+    _init();
   }
 
-  final FpbLiveService _fpbService = FpbLiveService();
-  final LbcLiveService _lbcService = LbcLiveService();
-  Timer? _fpbTimer;
-  Timer? _lbcTimer;
+  final LeagueFeed fpb = LeagueFeed(LeagueSource.fpb);
+  final LeagueFeed lbc = LeagueFeed(LeagueSource.lbc);
+  List<LeagueFeed> get feeds => [fpb, lbc];
+
+  Timer? _ticker;
+  bool _foreground = true;
+  bool ready = false;
 
   bool loggedIn = false;
   CoachProfile coach = CoachProfile.adrianoMiao;
   final Map<String, String> videoLinks = {};
 
-  final List<LbcGameSnapshot> lbcGames = [];
-  bool lbcSyncing = false;
-  DateTime? lbcLastSyncAt;
-  String? lbcError;
-  final List<FpbGameSnapshot> fpbGames = [];
-  bool fpbSyncing = false;
-  DateTime? fpbLastSyncAt;
-  String? fpbError;
-
   final List<Player> players = [...MockRepository.players];
   final List<Game> games = [...MockRepository.games];
   LiveGameSession? activeGame;
 
+  static const _playersKey = 'arco_players_v1';
+  static const _gamesKey = 'arco_games_v1';
+  static const _activeGameKey = 'arco_active_game_v1';
 
+  Future<void> _init() async {
+    // Restaura tudo antes da primeira sincronização, para que o cache antigo
+    // nunca sobrescreva dados recém-baixados.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _restoreCoachSession(prefs);
+      _restoreVideoLinks(prefs);
+      _restoreTeam(prefs);
+      for (final feed in feeds) {
+        _restoreFeed(prefs, feed);
+      }
+    } catch (_) {
+      // Armazenamento indisponível (ex.: navegador em modo privado): segue sem cache.
+    } finally {
+      ready = true;
+      notifyListeners();
+    }
+    await syncAllLeagues(silent: true);
+    _ticker = Timer.periodic(const Duration(seconds: 15), (_) => _tick());
+  }
 
-  Future<void> syncFpbNow({bool silent = false}) async {
-    if (fpbSyncing) return;
-    fpbSyncing = true;
+  void _tick() {
+    if (!_foreground) return;
+    final now = DateTime.now();
+    for (final feed in feeds) {
+      if (feed.isDue(now)) syncLeague(feed, silent: true);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    // Ao voltar para o app, atualiza o que estiver vencido imediatamente.
+    if (_foreground) _tick();
+  }
+
+  // ---------------------------------------------------------------- Competições
+
+  Future<void> syncAllLeagues({bool silent = false}) async {
+    await Future.wait(feeds.map((f) => syncLeague(f, silent: silent)));
+  }
+
+  Future<void> syncLeague(LeagueFeed feed, {bool silent = false}) async {
+    if (feed.syncing) return;
+    feed.syncing = true;
+    feed.lastAttemptAt = DateTime.now();
     if (!silent) notifyListeners();
     try {
-      final result = await _fpbService.fetchOnlineGames();
-      fpbGames
-        ..clear()
-        ..addAll(result.games);
-      fpbLastSyncAt = result.fetchedAt;
-      fpbError = result.warning;
-      await _saveFpbCache();
+      final result = await feed.service.fetch(extraPages: feed.extraPages);
+      feed.apply(result);
+      await _saveFeed(feed);
     } catch (e) {
-      fpbError = 'Não foi possível atualizar a FPB agora. Exibindo o último snapshot disponível. ($e)';
+      feed.error = SourceFetcher.describe(e);
+      feed.lastAttempts = e is LeagueSyncException ? e.attempts : const [];
     } finally {
-      fpbSyncing = false;
+      feed.syncing = false;
       notifyListeners();
     }
   }
 
-  Future<void> _restoreFpbCache() async {
+  /// Importa jogos colados pelo treinador. Retorna quantos foram reconhecidos.
+  Future<int> importPastedGames(LeagueFeed feed, String text) async {
+    final parsed = feed.service.parsePasted(text);
+    if (parsed.isEmpty) return 0;
+    final ids = parsed.map((g) => g.id).toSet();
+    feed.games
+      ..removeWhere((g) => ids.contains(g.id))
+      ..addAll(parsed);
+    feed.sort();
+    await _saveFeed(feed);
+    notifyListeners();
+    return parsed.length;
+  }
+
+  Future<void> removeManualGames(LeagueFeed feed) async {
+    feed.games.removeWhere((g) => g.manual);
+    await _saveFeed(feed);
+    notifyListeners();
+  }
+
+  Future<void> setExtraPages(LeagueFeed feed, List<String> urls) async {
+    feed.extraPages
+      ..clear()
+      ..addAll(urls.map((u) => u.trim()).where((u) => u.isNotEmpty));
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('fpb_snapshot_v1');
-    final synced = prefs.getString('fpb_last_sync_v1');
-    if (synced != null) fpbLastSyncAt = DateTime.tryParse(synced);
+    await prefs.setStringList(feed.pagesKey, feed.extraPages);
+    notifyListeners();
+    await syncLeague(feed);
+  }
+
+  /// Jogos da equipe do treinador logado (sem diferenciar acentos).
+  List<LeagueGame> myTeamGames(LeagueFeed feed) =>
+      feed.games.where((g) => coach.isMyTeam(g.homeTeam) || coach.isMyTeam(g.awayTeam)).toList();
+
+  void _restoreFeed(SharedPreferences prefs, LeagueFeed feed) {
+    final synced = prefs.getString(feed.syncKey);
+    if (synced != null) feed.lastSyncAt = DateTime.tryParse(synced);
+    feed.extraPages
+      ..clear()
+      ..addAll(prefs.getStringList(feed.pagesKey) ?? const []);
+    final raw = prefs.getString(feed.cacheKey);
     if (raw == null) return;
     try {
       final data = jsonDecode(raw) as List<dynamic>;
-      fpbGames
+      feed.games
         ..clear()
-        ..addAll(data.map((item) {
-          final m = item as Map<String, dynamic>;
-          return FpbGameSnapshot(
-            id: m['id'] as String,
-            homeTeam: m['homeTeam'] as String,
-            awayTeam: m['awayTeam'] as String,
-            homeScore: m['homeScore'] as int?,
-            awayScore: m['awayScore'] as int?,
-            competition: (m['competition'] as String?) ?? '',
-            venue: (m['venue'] as String?) ?? '',
-            status: (m['status'] as String?) ?? 'AGENDADO',
-            scheduledAt: m['scheduledAt'] == null ? null : DateTime.tryParse(m['scheduledAt'] as String),
-            fetchedAt: DateTime.tryParse(m['fetchedAt'] as String? ?? '') ?? DateTime.now(),
-            sourceUrl: (m['sourceUrl'] as String?) ?? FpbLiveService.onlineUrl,
-          );
-        }));
-      notifyListeners();
-    } catch (_) {}
+        ..addAll(data.map((item) => LeagueGame.fromJson(
+              (item as Map).cast<String, dynamic>(),
+              league: feed.league,
+              fallbackUrl: feed.source.officialUrl,
+            )));
+      feed.sort();
+    } catch (_) {
+      // Cache corrompido ou de versão incompatível: será refeito na próxima sincronização.
+    }
   }
 
-  Future<void> _saveFpbCache() async {
+  Future<void> _saveFeed(LeagueFeed feed) async {
     final prefs = await SharedPreferences.getInstance();
-    final data = fpbGames.map((g) => {
-      'id': g.id,
-      'homeTeam': g.homeTeam,
-      'awayTeam': g.awayTeam,
-      'homeScore': g.homeScore,
-      'awayScore': g.awayScore,
-      'competition': g.competition,
-      'venue': g.venue,
-      'status': g.status,
-      'scheduledAt': g.scheduledAt?.toIso8601String(),
-      'fetchedAt': g.fetchedAt.toIso8601String(),
-      'sourceUrl': g.sourceUrl,
-    }).toList();
-    await prefs.setString('fpb_snapshot_v1', jsonEncode(data));
-    if (fpbLastSyncAt != null) await prefs.setString('fpb_last_sync_v1', fpbLastSyncAt!.toIso8601String());
+    await prefs.setString(feed.cacheKey, jsonEncode([for (final g in feed.games) g.toJson()]));
+    if (feed.lastSyncAt != null) await prefs.setString(feed.syncKey, feed.lastSyncAt!.toIso8601String());
   }
 
   @override
   void dispose() {
-    _fpbTimer?.cancel();
-    _lbcTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _ticker?.cancel();
     super.dispose();
   }
 
-  Future<void> _restoreCoachSession() async {
-    final prefs = await SharedPreferences.getInstance();
+  // ---------------------------------------------------------------- Sessão
+
+  void _restoreCoachSession(SharedPreferences prefs) {
     loggedIn = prefs.getBool('coach_logged_in_v1') ?? false;
-    notifyListeners();
   }
 
   Future<bool> login(String email, String password) async {
     final normalized = email.trim().toLowerCase();
     final ok = normalized == 'adriano.miao@arco.app' && password == 'ARCO-DEMO';
     if (!ok) return false;
-    loggedIn = true;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('coach_logged_in_v1', true);
-    notifyListeners();
+    await loginAsAdrianoDemo();
     return true;
   }
 
@@ -156,8 +197,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _restoreVideoLinks() async {
-    final prefs = await SharedPreferences.getInstance();
+  // ---------------------------------------------------------------- Vídeos
+
+  void _restoreVideoLinks(SharedPreferences prefs) {
     final raw = prefs.getString('game_video_links_v1');
     if (raw == null) return;
     try {
@@ -165,7 +207,6 @@ class AppState extends ChangeNotifier {
       videoLinks
         ..clear()
         ..addAll(map.map((k, v) => MapEntry(k, v.toString())));
-      notifyListeners();
     } catch (_) {}
   }
 
@@ -180,75 +221,54 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> syncAllLeagues() async {
-    await Future.wait([syncFpbNow(), syncLbcNow()]);
-  }
+  // ---------------------------------------------------------------- Equipe e jogos
 
-  Future<void> syncLbcNow({bool silent = false}) async {
-    if (lbcSyncing) return;
-    lbcSyncing = true;
-    if (!silent) notifyListeners();
+  void _restoreTeam(SharedPreferences prefs) {
     try {
-      final result = await _lbcService.fetchGames();
-      lbcGames
-        ..clear()
-        ..addAll(result.games);
-      lbcLastSyncAt = result.fetchedAt;
-      lbcError = result.warning;
-      await _saveLbcCache();
-    } catch (e) {
-      lbcError = 'Não foi possível atualizar a LBC agora. Exibindo o último snapshot disponível. ($e)';
-    } finally {
-      lbcSyncing = false;
-      notifyListeners();
+      final rawPlayers = prefs.getString(_playersKey);
+      if (rawPlayers != null) {
+        final list = (jsonDecode(rawPlayers) as List).map((e) => Player.fromJson((e as Map).cast<String, dynamic>())).toList();
+        players
+          ..clear()
+          ..addAll(list);
+      }
+      final rawGames = prefs.getString(_gamesKey);
+      if (rawGames != null) {
+        final list = (jsonDecode(rawGames) as List).map((e) => Game.fromJson((e as Map).cast<String, dynamic>())).toList();
+        games
+          ..clear()
+          ..addAll(list);
+      }
+      final rawActive = prefs.getString(_activeGameKey);
+      if (rawActive != null) {
+        activeGame = LiveGameSession.fromJson((jsonDecode(rawActive) as Map).cast<String, dynamic>());
+      }
+    } catch (_) {
+      // Dados locais ilegíveis: mantém a base de demonstração.
     }
   }
 
-  Future<void> _restoreLbcCache() async {
+  Future<void> _saveTeam() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('lbc_snapshot_v1');
-    final synced = prefs.getString('lbc_last_sync_v1');
-    if (synced != null) lbcLastSyncAt = DateTime.tryParse(synced);
-    if (raw == null) return;
-    try {
-      final data = jsonDecode(raw) as List<dynamic>;
-      lbcGames
-        ..clear()
-        ..addAll(data.map((item) {
-          final m = item as Map<String, dynamic>;
-          return LbcGameSnapshot(
-            id: m['id'] as String,
-            homeTeam: m['homeTeam'] as String,
-            awayTeam: m['awayTeam'] as String,
-            homeScore: m['homeScore'] as int?,
-            awayScore: m['awayScore'] as int?,
-            competition: (m['competition'] as String?) ?? '',
-            status: (m['status'] as String?) ?? 'AGENDADO',
-            scheduledAt: m['scheduledAt'] == null ? null : DateTime.tryParse(m['scheduledAt'] as String),
-            fetchedAt: DateTime.tryParse(m['fetchedAt'] as String? ?? '') ?? DateTime.now(),
-            sourceUrl: (m['sourceUrl'] as String?) ?? LbcLiveService.officialUrl,
-          );
-        }));
-      notifyListeners();
-    } catch (_) {}
+    await prefs.setString(_playersKey, jsonEncode([for (final p in players) p.toJson()]));
+    await prefs.setString(_gamesKey, jsonEncode([for (final g in games) g.toJson()]));
+    await _saveActiveGame(prefs);
   }
 
-  Future<void> _saveLbcCache() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = lbcGames.map((g) => {
-      'id': g.id,
-      'homeTeam': g.homeTeam,
-      'awayTeam': g.awayTeam,
-      'homeScore': g.homeScore,
-      'awayScore': g.awayScore,
-      'competition': g.competition,
-      'status': g.status,
-      'scheduledAt': g.scheduledAt?.toIso8601String(),
-      'fetchedAt': g.fetchedAt.toIso8601String(),
-      'sourceUrl': g.sourceUrl,
-    }).toList();
-    await prefs.setString('lbc_snapshot_v1', jsonEncode(data));
-    if (lbcLastSyncAt != null) await prefs.setString('lbc_last_sync_v1', lbcLastSyncAt!.toIso8601String());
+  Future<void> _saveActiveGame([SharedPreferences? prefs]) async {
+    prefs ??= await SharedPreferences.getInstance();
+    final game = activeGame;
+    if (game == null) {
+      await prefs.remove(_activeGameKey);
+    } else {
+      await prefs.setString(_activeGameKey, jsonEncode(game.toJson()));
+    }
+  }
+
+  /// Notifica a interface e grava o scout em andamento (sobrevive a o app fechar).
+  void _liveChanged() {
+    notifyListeners();
+    _saveActiveGame();
   }
 
   void addPlayer({required String name, required String position, required int number}) {
@@ -259,6 +279,7 @@ class AppState extends ChangeNotifier {
       number: number,
     ));
     notifyListeners();
+    _saveTeam();
   }
 
   bool startGame(String opponent) {
@@ -270,7 +291,7 @@ class AppState extends ChangeNotifier {
       lineupIds: starters,
       selectedPlayerId: starters.first,
     );
-    notifyListeners();
+    _liveChanged();
     return true;
   }
 
@@ -278,14 +299,14 @@ class AppState extends ChangeNotifier {
     final game = activeGame;
     if (game == null) return;
     game.selectedPlayerId = playerId;
-    notifyListeners();
+    _liveChanged();
   }
 
   void setPeriod(int period) {
     final game = activeGame;
     if (game == null) return;
-    game.period = period < 1 ? 1 : (period > 4 ? 4 : period);
-    notifyListeners();
+    game.period = period.clamp(1, 5); // 5 = prorrogação
+    _liveChanged();
   }
 
   void changeLineup(String playerId, bool onCourt) {
@@ -300,7 +321,7 @@ class AppState extends ChangeNotifier {
         game.selectedPlayerId = game.lineupIds.isEmpty ? null : game.lineupIds.first;
       }
     }
-    notifyListeners();
+    _liveChanged();
   }
 
   void addEvent(PlayEventType type, {String? playerId}) {
@@ -314,7 +335,7 @@ class AppState extends ChangeNotifier {
       final points = type == PlayEventType.opponentOne ? 1 : (type == PlayEventType.opponentTwo ? 2 : 3);
       game.opponentScore += points;
       game.events.add(PlayEvent(type: type, period: game.period, timestamp: DateTime.now(), lineupIds: List<String>.from(game.lineupIds)));
-      notifyListeners();
+      _liveChanged();
       return;
     }
 
@@ -366,7 +387,7 @@ class AppState extends ChangeNotifier {
         break;
     }
     game.events.add(PlayEvent(type: type, playerId: id, period: game.period, timestamp: DateTime.now(), lineupIds: List<String>.from(game.lineupIds)));
-    notifyListeners();
+    _liveChanged();
   }
 
   void undoLastEvent() {
@@ -374,7 +395,7 @@ class AppState extends ChangeNotifier {
     if (game == null || game.events.isEmpty) return;
     final event = game.events.removeLast();
     _reverseEvent(game, event);
-    notifyListeners();
+    _liveChanged();
   }
 
   void _reverseEvent(LiveGameSession game, PlayEvent event) {
@@ -435,7 +456,7 @@ class AppState extends ChangeNotifier {
     final live = activeGame;
     if (live == null) return null;
     live.finished = true;
-    final possessions = live.estimatedPossessions.round().clamp(1, 999) as int;
+    final possessions = live.estimatedPossessions.round().clamp(1, 999);
     final statLines = <String, PlayerStatLine>{
       for (final entry in live.playerStats.entries)
         entry.key: PlayerStatLine(
@@ -469,7 +490,7 @@ class AppState extends ChangeNotifier {
       fta: live.fta,
       turnovers: live.turnovers,
       offensiveRebounds: live.offensiveRebounds,
-      availableOffensiveRebounds: (live.fga - live.fgm + live.offensiveRebounds).clamp(1, 999) as int,
+      availableOffensiveRebounds: (live.fga - live.fgm).clamp(1, 999),
       opponentPoints: live.opponentScore,
       playerStats: statLines,
       events: List<PlayEvent>.from(live.events),
@@ -477,6 +498,7 @@ class AppState extends ChangeNotifier {
     games.insert(0, game);
     activeGame = null;
     notifyListeners();
+    _saveTeam();
     return game;
   }
 }

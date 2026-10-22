@@ -30,7 +30,11 @@ class _ArcoAppState extends State<ArcoApp> {
           debugShowCheckedModeBanner: false,
           title: 'ARCO Analytics',
           theme: ArcoTheme.dark,
-          home: state.loggedIn ? const RootShell() : const LoginScreen(),
+          home: !state.ready
+              ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+              : state.loggedIn
+                  ? const RootShell()
+                  : const LoginScreen(),
         ),
       ),
     );

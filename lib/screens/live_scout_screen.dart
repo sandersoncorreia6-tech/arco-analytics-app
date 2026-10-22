@@ -44,6 +44,7 @@ class LiveScoutScreen extends StatelessWidget {
                       ButtonSegment(value: 2, label: Text('2Q')),
                       ButtonSegment(value: 3, label: Text('3Q')),
                       ButtonSegment(value: 4, label: Text('4Q')),
+                      ButtonSegment(value: 5, label: Text('PR')),
                     ],
                     selected: {game.period},
                     onSelectionChanged: (value) => state.setPeriod(value.first),

@@ -35,8 +35,42 @@ class LiveGameSession {
   int get turnovers => playerStats.values.fold(0, (sum, s) => sum + s.turnovers);
   int get offensiveRebounds => playerStats.values.fold(0, (sum, s) => sum + s.offensiveRebounds);
 
+  String get periodLabel => period >= 5 ? 'Prorrogação' : '${period}Q';
+
   double get estimatedPossessions {
     final estimate = fga - offensiveRebounds + turnovers + (0.44 * fta);
     return estimate < 1 ? 1 : estimate;
   }
+
+  Map<String, dynamic> toJson() => {
+        'opponent': opponent,
+        'startedAt': startedAt.toIso8601String(),
+        'period': period,
+        'ourScore': ourScore,
+        'opponentScore': opponentScore,
+        'finished': finished,
+        'selectedPlayerId': selectedPlayerId,
+        'lineupIds': lineupIds,
+        'events': [for (final e in events) e.toJson()],
+        'playerStats': {for (final e in playerStats.entries) e.key: e.value.toJson()},
+      };
+
+  factory LiveGameSession.fromJson(Map<String, dynamic> m) => LiveGameSession(
+        opponent: m['opponent'] as String,
+        startedAt: DateTime.tryParse(m['startedAt'] as String? ?? '') ?? DateTime.now(),
+        period: (m['period'] as num?)?.toInt() ?? 1,
+        ourScore: (m['ourScore'] as num?)?.toInt() ?? 0,
+        opponentScore: (m['opponentScore'] as num?)?.toInt() ?? 0,
+        finished: (m['finished'] as bool?) ?? false,
+        selectedPlayerId: m['selectedPlayerId'] as String?,
+        lineupIds: ((m['lineupIds'] as List?) ?? const []).map((e) => e.toString()).toList(),
+        events: [
+          for (final e in (m['events'] as List?) ?? const [])
+            if (PlayEvent.fromJson((e as Map).cast<String, dynamic>()) case final event?) event,
+        ],
+        playerStats: {
+          for (final e in ((m['playerStats'] as Map?) ?? const {}).entries)
+            e.key.toString(): PlayerGameStats.fromJson((e.value as Map).cast<String, dynamic>()),
+        },
+      );
 }

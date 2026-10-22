@@ -1,4 +1,4 @@
-const CACHE = 'arco-v04-shell';
+const CACHE = 'arco-v06-shell';
 const CORE = ['./', './index.html', './manifest.json'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).catch(() => null));

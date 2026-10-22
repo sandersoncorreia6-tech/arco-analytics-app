@@ -58,7 +58,7 @@ class TeamScreen extends StatelessWidget {
               TextField(controller: number, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Número')),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: position,
+                initialValue: position,
                 decoration: const InputDecoration(labelText: 'Posição'),
                 items: const ['PG', 'SG', 'SF', 'PF', 'C'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: (value) => setLocalState(() => position = value ?? position),

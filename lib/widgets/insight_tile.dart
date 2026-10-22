@@ -25,7 +25,7 @@ class InsightTile extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 12),

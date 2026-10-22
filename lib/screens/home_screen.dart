@@ -6,7 +6,12 @@ import '../state/app_state.dart';
 import '../widgets/insight_tile.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/section_card.dart';
+import '../state/league_feed.dart';
+import '../widgets/league_widgets.dart';
+import 'game_detail_screen.dart';
+import 'games_screen.dart';
 import 'live_scout_screen.dart';
+import 'new_game_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -34,7 +39,11 @@ class HomeScreen extends StatelessWidget {
               child: const Icon(Icons.track_changes_rounded, color: Colors.white),
             ),
             const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Olá, ${state.coach.name}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)), Text('${state.coach.club} • ${state.coach.role}', style: const TextStyle(color: Colors.white60, fontSize: 12))])),
+            Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Olá, ${state.coach.name}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+              Text('${state.coach.club} • ${state.coach.role}', style: const TextStyle(color: Colors.white60, fontSize: 12))
+            ])),
             const CircleAvatar(child: Icon(Icons.person_outline)),
           ],
         ),
@@ -44,7 +53,7 @@ class HomeScreen extends StatelessWidget {
             child: ListTile(
               leading: const Icon(Icons.sensors, color: Colors.redAccent),
               title: Text('Partida em andamento • ${state.activeGame!.ourScore} × ${state.activeGame!.opponentScore}'),
-              subtitle: Text('vs ${state.activeGame!.opponent} • ${state.activeGame!.period}Q'),
+              subtitle: Text('vs ${state.activeGame!.opponent} • ${state.activeGame!.periodLabel}'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LiveScoutScreen())),
             ),
@@ -61,26 +70,52 @@ class HomeScreen extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
-          childAspectRatio: 1.28,
+          childAspectRatio: 1.15,
           children: [
             MetricCard(label: 'Off Rating', value: off.toStringAsFixed(1), helper: 'pts / 100 posses', icon: Icons.bolt_rounded),
             MetricCard(label: 'Def Rating', value: def.toStringAsFixed(1), helper: 'menor é melhor', icon: Icons.shield_outlined),
-            MetricCard(label: 'Net Rating', value: '${net >= 0 ? '+' : ''}${net.toStringAsFixed(1)}', helper: 'saldo / 100 posses', icon: Icons.balance_rounded),
+            MetricCard(
+                label: 'Net Rating', value: '${net >= 0 ? '+' : ''}${net.toStringAsFixed(1)}', helper: 'saldo / 100 posses', icon: Icons.balance_rounded),
             MetricCard(label: 'Pace', value: '${game.possessions}', helper: 'posses no último jogo', icon: Icons.speed_rounded),
           ],
         ),
         const SizedBox(height: 14),
+        Row(children: [
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewGameScreen())),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Novo scout'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GamesScreen())),
+              icon: const Icon(Icons.history),
+              label: const Text('Jogos'),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 14),
         Builder(builder: (context) {
-          final mine = [
-            ...state.fpbGames.where((g) => ('${g.homeTeam} ${g.awayTeam}'.toLowerCase().contains('tupã') || '${g.homeTeam} ${g.awayTeam}'.toLowerCase().contains('monstrinho'))),
-          ];
-          final lbcMine = state.lbcGames.where((g) => ('${g.homeTeam} ${g.awayTeam}'.toLowerCase().contains('tupã') || '${g.homeTeam} ${g.awayTeam}'.toLowerCase().contains('monstrinho'))).length;
+          final mine = [for (final f in state.feeds) ...state.myTeamGames(f)]..sort(LeagueFeed.compareGames);
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final next = mine.where((g) => g.isLive || (!g.isFinal && g.scheduledAt != null && !g.scheduledAt!.isBefore(today))).firstOrNull;
           return SectionCard(
             title: 'Minha equipe nas competições',
-            child: Row(children: [
-              Expanded(child: _MiniStat(label: 'FPB', value: '${mine.length} jogos')),
-              const SizedBox(width: 10),
-              Expanded(child: _MiniStat(label: 'LBC', value: '$lbcMine jogos')),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                for (final f in state.feeds) ...[
+                  Expanded(child: _MiniStat(label: f.league, value: '${state.myTeamGames(f).length} jogos', warning: f.error != null)),
+                  if (f != state.feeds.last) const SizedBox(width: 10),
+                ],
+              ]),
+              if (next != null) ...[
+                const SizedBox(height: 10),
+                LeagueGameTile(game: next),
+              ],
             ]),
           );
         }),
@@ -92,11 +127,20 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: 14),
         SectionCard(
           title: 'Último jogo',
-          child: Row(
-            children: [
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('ARCO  ${game.ourScore}  ×  ${game.opponentScore}  ${game.opponent}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)), const SizedBox(height: 7), Text(game.won ? 'Vitória: revise os fatores que sustentaram a vantagem.' : 'Derrota: procure os fatores que mais custaram posses.', style: const TextStyle(color: Colors.white70))])),
-              const Icon(Icons.chevron_right),
-            ],
+          child: InkWell(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: game))),
+            child: Row(
+              children: [
+                Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('ARCO  ${game.ourScore}  ×  ${game.opponentScore}  ${game.opponent}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                  const SizedBox(height: 7),
+                  Text(game.won ? 'Vitória: revise os fatores que sustentaram a vantagem.' : 'Derrota: procure os fatores que mais custaram posses.',
+                      style: const TextStyle(color: Colors.white70))
+                ])),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
           ),
         ),
       ],
@@ -104,19 +148,22 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-
 class _MiniStat extends StatelessWidget {
   final String label;
   final String value;
-  const _MiniStat({required this.label, required this.value});
+  final bool warning;
+  const _MiniStat({required this.label, required this.value, this.warning = false});
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: Colors.white.withOpacity(.04), borderRadius: BorderRadius.circular(12)),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(color: Colors.white60)),
-      const SizedBox(height: 4),
-      Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-    ]),
-  );
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: .04), borderRadius: BorderRadius.circular(12)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Text(label, style: const TextStyle(color: Colors.white60)),
+            if (warning) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.cloud_off_outlined, size: 14, color: Colors.orangeAccent)),
+          ]),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        ]),
+      );
 }

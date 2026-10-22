@@ -1,19 +1,56 @@
-export default async function handler(req, res) {
+// Proxy serverless (Vercel) para a versão Web/PWA: o navegador não pode ler
+// fpb.com.br diretamente por causa do CORS. O app nativo (APK) não usa isto.
+const PAGES = ['https://fpb.com.br/online/', 'https://fpb.com.br/'];
+const HOST = 'fpb.com.br';
+
+const HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36 ARCO-Analytics-Web/0.6',
+  'Accept': 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'pt-BR,pt;q=0.9',
+};
+
+function allowed(url) {
   try {
-    const headers = { 'User-Agent': 'ARCO-Analytics-Web/0.5', 'Accept': 'text/html' };
-    const [online, home] = await Promise.allSettled([
-      fetch('https://fpb.com.br/online/', { headers }),
-      fetch('https://fpb.com.br/', { headers })
-    ]);
-    const bodies = [];
-    for (const result of [online, home]) {
-      if (result.status === 'fulfilled' && result.value.ok) bodies.push(await result.value.text());
-    }
-    if (!bodies.length) return res.status(502).json({ error: 'Fontes FPB indisponíveis' });
-    res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30');
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.status(200).send(bodies.join('\n'));
-  } catch (error) {
-    res.status(502).json({error: 'Falha ao consultar a fonte FPB', detail: String(error)});
+    const u = new URL(url);
+    return (u.protocol === 'https:' || u.protocol === 'http:') && (u.hostname === HOST || u.hostname.endsWith('.' + HOST));
+  } catch (_) {
+    return false;
   }
+}
+
+async function fetchText(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const res = await fetch(url, { headers: HEADERS, redirect: 'follow', signal: controller.signal });
+    return { ok: res.ok, status: res.status, body: res.ok ? await res.text() : '' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  if (req.method === 'OPTIONS') return res.status(204).end();
+
+  const extra = req.query && req.query.url;
+  if (extra && !allowed(extra)) return res.status(400).json({ error: `Somente páginas de ${HOST}` });
+  const targets = extra ? [extra] : PAGES;
+
+  const results = await Promise.allSettled(targets.map(fetchText));
+  const bodies = [];
+  let lastStatus = 502;
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      lastStatus = r.value.status;
+      if (r.value.ok) bodies.push(r.value.body);
+    }
+  }
+  if (!bodies.length) {
+    return res.status(lastStatus >= 400 ? lastStatus : 502).json({ error: 'Fonte FPB indisponível', status: lastStatus });
+  }
+  res.setHeader('Cache-Control', 's-maxage=20, stale-while-revalidate=60');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.status(200).send(bodies.join('\n'));
 }

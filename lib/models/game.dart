@@ -34,6 +34,40 @@ class PlayerStatLine {
   });
 
   int get rebounds => offensiveRebounds + defensiveRebounds;
+
+  Map<String, dynamic> toJson() => {
+        'points': points,
+        'assists': assists,
+        'offensiveRebounds': offensiveRebounds,
+        'defensiveRebounds': defensiveRebounds,
+        'steals': steals,
+        'blocks': blocks,
+        'turnovers': turnovers,
+        'fouls': fouls,
+        'fgm': fgm,
+        'fga': fga,
+        'threePm': threePm,
+        'threePa': threePa,
+        'ftm': ftm,
+        'fta': fta,
+      };
+
+  factory PlayerStatLine.fromJson(Map<String, dynamic> m) => PlayerStatLine(
+        points: (m['points'] as num?)?.toInt() ?? 0,
+        assists: (m['assists'] as num?)?.toInt() ?? 0,
+        offensiveRebounds: (m['offensiveRebounds'] as num?)?.toInt() ?? 0,
+        defensiveRebounds: (m['defensiveRebounds'] as num?)?.toInt() ?? 0,
+        steals: (m['steals'] as num?)?.toInt() ?? 0,
+        blocks: (m['blocks'] as num?)?.toInt() ?? 0,
+        turnovers: (m['turnovers'] as num?)?.toInt() ?? 0,
+        fouls: (m['fouls'] as num?)?.toInt() ?? 0,
+        fgm: (m['fgm'] as num?)?.toInt() ?? 0,
+        fga: (m['fga'] as num?)?.toInt() ?? 0,
+        threePm: (m['threePm'] as num?)?.toInt() ?? 0,
+        threePa: (m['threePa'] as num?)?.toInt() ?? 0,
+        ftm: (m['ftm'] as num?)?.toInt() ?? 0,
+        fta: (m['fta'] as num?)?.toInt() ?? 0,
+      );
 }
 
 class Game {
@@ -76,4 +110,50 @@ class Game {
   });
 
   bool get won => ourScore > opponentScore;
+
+  Map<String, dynamic> toJson() => {
+        'opponent': opponent,
+        'date': date.toIso8601String(),
+        'ourScore': ourScore,
+        'opponentScore': opponentScore,
+        'possessions': possessions,
+        'fgm': fgm,
+        'fga': fga,
+        'threePm': threePm,
+        'threePa': threePa,
+        'ftm': ftm,
+        'fta': fta,
+        'turnovers': turnovers,
+        'offensiveRebounds': offensiveRebounds,
+        'availableOffensiveRebounds': availableOffensiveRebounds,
+        'opponentPoints': opponentPoints,
+        'playerStats': {for (final e in playerStats.entries) e.key: e.value.toJson()},
+        'events': [for (final e in events) e.toJson()],
+      };
+
+  factory Game.fromJson(Map<String, dynamic> m) => Game(
+        opponent: m['opponent'] as String,
+        date: DateTime.tryParse(m['date'] as String? ?? '') ?? DateTime.now(),
+        ourScore: (m['ourScore'] as num?)?.toInt() ?? 0,
+        opponentScore: (m['opponentScore'] as num?)?.toInt() ?? 0,
+        possessions: (m['possessions'] as num?)?.toInt() ?? 0,
+        fgm: (m['fgm'] as num?)?.toInt() ?? 0,
+        fga: (m['fga'] as num?)?.toInt() ?? 0,
+        threePm: (m['threePm'] as num?)?.toInt() ?? 0,
+        threePa: (m['threePa'] as num?)?.toInt() ?? 0,
+        ftm: (m['ftm'] as num?)?.toInt() ?? 0,
+        fta: (m['fta'] as num?)?.toInt() ?? 0,
+        turnovers: (m['turnovers'] as num?)?.toInt() ?? 0,
+        offensiveRebounds: (m['offensiveRebounds'] as num?)?.toInt() ?? 0,
+        availableOffensiveRebounds: (m['availableOffensiveRebounds'] as num?)?.toInt() ?? 0,
+        opponentPoints: (m['opponentPoints'] as num?)?.toInt() ?? 0,
+        playerStats: {
+          for (final e in ((m['playerStats'] as Map?) ?? const {}).entries)
+            e.key.toString(): PlayerStatLine.fromJson((e.value as Map).cast<String, dynamic>()),
+        },
+        events: [
+          for (final e in (m['events'] as List?) ?? const [])
+            if (PlayEvent.fromJson((e as Map).cast<String, dynamic>()) case final event?) event,
+        ],
+      );
 }

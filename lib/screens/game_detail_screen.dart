@@ -49,7 +49,7 @@ class GameDetailScreen extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            childAspectRatio: 1.28,
+            childAspectRatio: 1.15,
             children: [
               MetricCard(label: 'Off Rating', value: off.toStringAsFixed(1), icon: Icons.bolt_rounded),
               MetricCard(label: 'Def Rating', value: def.toStringAsFixed(1), icon: Icons.shield_outlined),

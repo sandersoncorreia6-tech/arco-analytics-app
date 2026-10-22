@@ -28,7 +28,7 @@ class AnalyticsScreen extends StatelessWidget {
         const SizedBox(height: 6),
         const Text('Descubra por que o time ganha ou perde.', style: TextStyle(color: Colors.white60)),
         const SizedBox(height: 18),
-        SectionCard(title: 'Shot chart', trailing: const Text('Amostra demo', style: TextStyle(color: Colors.white54, fontSize: 12)), child: ShotChart(shots: MockRepository.shots)),
+        const SectionCard(title: 'Shot chart', trailing: Text('Amostra demo', style: TextStyle(color: Colors.white54, fontSize: 12)), child: ShotChart(shots: MockRepository.shots)),
         const SizedBox(height: 14),
         SectionCard(
           title: usingDemoLineups ? 'Lineup Analytics • demo' : 'Lineup Analytics • scout real',

@@ -73,7 +73,7 @@ class AnalyticsService {
     for (final bucket in buckets.values) {
       final poss = bucket.estimatedPossessions;
       if (poss < 1) continue;
-      final roundedPoss = poss.round().clamp(1, 999) as int;
+      final roundedPoss = poss.round().clamp(1, 999);
       final off = (bucket.pointsFor / poss) * 100;
       final def = (bucket.pointsAgainst / poss) * 100;
       result.add(Lineup(
