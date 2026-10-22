@@ -34,9 +34,9 @@ jobs:
                       if '16' in name and ('2026' in name or c.get('seasonStartYear')==2026):
                           found.append({'league':league.get('name'),'org':org,**c})
           pathlib.Path('out/sub16-competitions.json').write_text(json.dumps(found,ensure_ascii=False,indent=2))
-          target=next((x for x in found if x.get('org')=='fpb' and 'SUB 16M 2026' in str(x.get('name','')).upper()),None)
+          target=next((x for x in found if 'SUB 16M 2026' in str(x.get('name','')).upper()),None)
           if not target:
-              target=next((x for x in found if x.get('org')=='fpb' and '16M' in str(x.get('name','')).upper()),None)
+              target=next((x for x in found if '16M' in str(x.get('name','')).upper()),None)
           if not target:
               pathlib.Path('out/candidates.txt').write_text('FPB SUB16 not found')
               raise SystemExit(0)
@@ -85,7 +85,9 @@ jobs:
             cat out/probe-status.txt
             echo
             echo '=== CANDIDATE PREVIEWS ==='
-            for f in out/candidate-*.txt; do echo "--- $f"; head -c 2000 "$f"; echo; done
+            shopt -s nullglob
+            files=(out/candidate-*.txt)
+            for f in "${files[@]}"; do echo "--- $f"; head -c 2000 "$f"; echo; done
           } > out/report.txt
       - uses: actions/upload-artifact@v4
         with:
