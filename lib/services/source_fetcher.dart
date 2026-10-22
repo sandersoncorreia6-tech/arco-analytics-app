@@ -39,14 +39,41 @@ class SourceFetcher {
     'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.6',
   };
 
-  Future<FetchedPage> get(Uri url, {int retries = 1}) async {
+  Map<String, String>? _headers(Map<String, String>? extra) {
+    if (kIsWeb) return extra;
+    return {..._nativeHeaders, ...?extra};
+  }
+
+  Future<FetchedPage> get(Uri url, {int retries = 1}) =>
+      _request(url, retries: retries, send: () => _client.get(url, headers: kIsWeb ? null : _nativeHeaders));
+
+  /// POST textual usado por fontes estruturadas que publicam o calendário por
+  /// ação HTTP (ex.: o Schedule da FPB/CBB). Na Web o app usa o proxy /api,
+  /// evitando CORS; no app nativo a chamada é direta.
+  Future<FetchedPage> post(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    int retries = 1,
+  }) =>
+      _request(
+        url,
+        retries: retries,
+        send: () => _client.post(url, headers: _headers(headers), body: body),
+      );
+
+  Future<FetchedPage> _request(
+    Uri url, {
+    required Future<http.Response> Function() send,
+    int retries = 1,
+  }) async {
     Object? lastError;
     for (var attempt = 0; attempt <= retries; attempt++) {
       if (attempt > 0) await Future<void>.delayed(Duration(milliseconds: 1500 * attempt));
       final watch = Stopwatch()..start();
       http.Response response;
       try {
-        response = await _client.get(url, headers: kIsWeb ? null : _nativeHeaders).timeout(timeout);
+        response = await send().timeout(timeout);
       } catch (e) {
         lastError = e;
         continue;
