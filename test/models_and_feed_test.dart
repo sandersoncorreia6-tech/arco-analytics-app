@@ -104,6 +104,19 @@ void main() {
     expect(coach.isMyTeam('Marília'), isFalse);
   });
 
+  test('equipe do Mião é o Tupã Sub-16 da FPB', () {
+    const coach = CoachProfile.adrianoMiao;
+    expect(coach.teamLabel, 'Tupã Sub-16 • FPB');
+    LeagueGame g(String home, String away, String comp) =>
+        LeagueGame(id: home + comp, league: 'FPB', homeTeam: home, awayTeam: away, competition: comp, fetchedAt: DateTime(2026), sourceUrl: '');
+    expect(coach.isMyGame(g('Tupã', 'Paulistano', 'SUB 16 M')), isTrue);
+    expect(coach.isMyGame(g('Sorocaba', 'ATB – Associação Tupã Basquete', 'SUB 16')), isTrue);
+    expect(coach.isMyGame(g('Tupã', 'Sorocaba', '')), isTrue); // sem categoria informada
+    expect(coach.isMyGame(g('Tupã', 'APAGEBASK', 'SUB 14 F')), isFalse);
+    expect(coach.isMyGame(g('Tupã', 'Pinheiros', 'SUB 16 F')), isFalse);
+    expect(coach.isMyGame(g('Bauru', 'Lins', 'SUB 16 M')), isFalse);
+  });
+
   test('páginas extras: domínio da liga na Web, qualquer site no app', () {
     expect(LeagueSource.lbc.isLeagueHost(Uri.parse('https://www.lbc.org.br/tabela/sub-17')), isTrue);
     expect(LeagueSource.lbc.isLeagueHost(Uri.parse('https://lbc.org.br/jogos')), isTrue);

@@ -128,12 +128,12 @@ class LeagueGameTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final mine = state.coach.isMyTeam(game.homeTeam) || state.coach.isMyTeam(game.awayTeam);
+    final mine = state.coach.isMyGame(game);
     final hasVideo = state.videoLinks.containsKey(game.id);
     final statusColor = game.isLive ? Colors.redAccent : (game.isFinal ? Colors.white60 : Colors.lightBlueAccent);
     TextStyle team(String name) => TextStyle(
           fontWeight: FontWeight.w800,
-          color: state.coach.isMyTeam(name) ? Theme.of(context).colorScheme.primary : null,
+          color: mine && state.coach.isMyTeam(name) ? Theme.of(context).colorScheme.primary : null,
         );
 
     return Card(

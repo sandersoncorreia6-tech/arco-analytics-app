@@ -23,7 +23,7 @@ class MoreScreen extends StatelessWidget {
         Card(child: ListTile(
           leading: const CircleAvatar(child: Icon(Icons.person)),
           title: Text(state.coach.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-          subtitle: Text('${state.coach.role} • ${state.coach.club}\n${state.coach.city}'),
+          subtitle: Text('${state.coach.role} • ${state.coach.teamLabel}\n${state.coach.club} • ${state.coach.city}'),
           isThreeLine: true,
         )),
         const SizedBox(height: 10),

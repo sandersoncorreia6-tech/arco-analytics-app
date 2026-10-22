@@ -27,7 +27,7 @@ class _CompetitionHubScreenState extends State<CompetitionHubScreen> {
     final filtered = rows.where((g) {
       if (league != 'TODOS' && g.league != league) return false;
       if (category != 'TODAS' && g.competition != category) return false;
-      if (onlyMine && !state.coach.isMyTeam(g.homeTeam) && !state.coach.isMyTeam(g.awayTeam)) return false;
+      if (onlyMine && !state.coach.isMyGame(g)) return false;
       if (onlyLive && !g.isLive) return false;
       if (q.isNotEmpty && !'${g.homeTeam} ${g.awayTeam} ${g.venue}'.toLowerCase().contains(q)) return false;
       return true;
@@ -74,7 +74,7 @@ class _CompetitionHubScreenState extends State<CompetitionHubScreen> {
             items: categories.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
             onChanged: (v) => setState(() => category = v!),
           ),
-          FilterChip(label: Text('Minha equipe (${state.coach.club})'), selected: onlyMine, onSelected: (v) => setState(() => onlyMine = v)),
+          FilterChip(label: Text('Minha equipe (${state.coach.team.isEmpty ? state.coach.club : state.coach.team})'), selected: onlyMine, onSelected: (v) => setState(() => onlyMine = v)),
           FilterChip(label: const Text('Ao vivo'), selected: onlyLive, onSelected: (v) => setState(() => onlyLive = v)),
         ]),
         const SizedBox(height: 10),

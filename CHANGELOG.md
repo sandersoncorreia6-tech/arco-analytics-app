@@ -25,6 +25,8 @@
 ### Corrigido
 - Índice do jogador saturava em 100: agora é o Game Score por jogo, sem teto.
 - Elenco de demonstração agora é sinalizado, com opção de remover.
+- Login do Adriano Mião vinculado ao Tupã Sub-16 (FPB): Home, filtro "Minha equipe", destaques e
+  Analista consideram só os jogos do Sub-16 (jogos sem categoria informada também contam).
 - Título do mapa de arremessos quebrava ao lado de "Amostra demo".
 
 ## 0.7.0+7 — Estatísticas completas (aba Estatística/Online)

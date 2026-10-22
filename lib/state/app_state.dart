@@ -176,7 +176,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<GameBoxScore> get analysisGames {
     final scouted = [
       for (final g in games)
-        if (g.events.isNotEmpty) ScoutAdapter.toBoxScore(g, teamName: coach.club, roster: players),
+        if (g.events.isNotEmpty) ScoutAdapter.toBoxScore(g, teamName: coach.team.isEmpty ? coach.club : coach.team, roster: players),
     ];
     final online = boxScores.values.toList()..sort((a, b) => a.matchId.compareTo(b.matchId));
     return [...online, ...scouted]..sort((a, b) => a.fetchedAt.compareTo(b.fetchedAt));
@@ -330,7 +330,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Jogos da equipe do treinador logado (sem diferenciar acentos).
   List<LeagueGame> myTeamGames(LeagueFeed feed) =>
-      feed.games.where((g) => coach.isMyTeam(g.homeTeam) || coach.isMyTeam(g.awayTeam)).toList();
+      feed.games.where(coach.isMyGame).toList();
 
   void _restoreFeed(SharedPreferences prefs, LeagueFeed feed) {
     final synced = prefs.getString(feed.syncKey);

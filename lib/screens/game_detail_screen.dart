@@ -41,7 +41,7 @@ class GameDetailScreen extends StatelessWidget {
           icon: const Icon(Icons.description_outlined),
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => ReportScreen(
-              report: Reports.postGame(GameAnalysis(ScoutAdapter.toBoxScore(game, teamName: state.coach.club, roster: state.players), 1)),
+              report: Reports.postGame(GameAnalysis(ScoutAdapter.toBoxScore(game, teamName: state.coach.team.isEmpty ? state.coach.club : state.coach.team, roster: state.players), 1)),
             ),
           )),
         ),
@@ -61,7 +61,7 @@ class GameDetailScreen extends StatelessWidget {
           FilledButton.tonalIcon(
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ReportScreen(
-                report: Reports.postGame(GameAnalysis(ScoutAdapter.toBoxScore(game, teamName: state.coach.club, roster: state.players), 1)),
+                report: Reports.postGame(GameAnalysis(ScoutAdapter.toBoxScore(game, teamName: state.coach.team.isEmpty ? state.coach.club : state.coach.team, roster: state.players), 1)),
               ),
             )),
             icon: const Icon(Icons.psychology_alt_outlined),

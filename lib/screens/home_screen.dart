@@ -46,7 +46,7 @@ class HomeScreen extends StatelessWidget {
             Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Olá, ${state.coach.name}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-              Text('${state.coach.club} • ${state.coach.role}', style: const TextStyle(color: Colors.white60, fontSize: 12))
+              Text('${state.coach.role} • ${state.coach.teamLabel}', style: const TextStyle(color: Colors.white60, fontSize: 12))
             ])),
             const CircleAvatar(child: Icon(Icons.person_outline)),
           ],
@@ -66,7 +66,7 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: 24),
         Text('Central de decisão', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Text('Insights de ${state.coach.club}: o que o treinador precisa saber hoje.', style: const TextStyle(color: Colors.white60)),
+        Text('Insights do ${state.coach.team.isEmpty ? state.coach.club : state.coach.team}: o que o treinador precisa saber hoje.', style: const TextStyle(color: Colors.white60)),
         const SizedBox(height: 18),
         Card(
           color: Theme.of(context).colorScheme.primary.withValues(alpha: .14),
@@ -138,7 +138,7 @@ class HomeScreen extends StatelessWidget {
                   Text(
                     state.statsSyncing
                         ? 'Importando estatísticas da FPB/LBC...'
-                        : 'Ainda não há estatísticas de ${state.coach.club} importadas. Importe um jogo pelo link da aba Estatística/Online do site.',
+                        : 'Ainda não há estatísticas do ${state.coach.team.isEmpty ? state.coach.club : state.coach.team} importadas. Importe um jogo pelo link da aba Estatística/Online do site.',
                     style: const TextStyle(color: Colors.white70),
                   ),
                   const SizedBox(height: 8),
