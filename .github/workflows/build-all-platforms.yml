@@ -1,0 +1,237 @@
+name: Build ARCO Multiplatform
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".source/v0_4/**"
+      - ".github/workflows/build-all-platforms.yml"
+
+permissions:
+  contents: read
+
+env:
+  ARCO_SOURCE_SHA256: 247421b7dfbf944fcd7cbd4d7c5a775d7afe01443b322a08d578d0934ee7fd6d
+
+jobs:
+  android:
+    name: Android APK + AAB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Reconstruir e validar fonte oficial
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, hashlib
+          parts = sorted(Path(".source/v0_4").glob("part*.b64"))
+          assert parts, "Partes da fonte oficial não encontradas"
+          raw = base64.b64decode("".join(p.read_text().strip() for p in parts))
+          Path("arco.zip").write_bytes(raw)
+          digest = hashlib.sha256(raw).hexdigest()
+          expected = "247421b7dfbf944fcd7cbd4d7c5a775d7afe01443b322a08d578d0934ee7fd6d"
+          assert digest == expected, f"SHA256 inválido: {digest}"
+          print("Fonte oficial validada:", digest)
+          PY
+          unzip -q arco.zip
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Preparar Android
+        working-directory: arco_analytics
+        run: flutter create . --platforms=android --org com.arcoanalytics --project-name arco_analytics
+
+      - name: Instalar dependências
+        working-directory: arco_analytics
+        run: flutter pub get
+
+      - name: Validar código
+        working-directory: arco_analytics
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Gerar APK
+        working-directory: arco_analytics
+        run: flutter build apk --release
+
+      - name: Gerar AAB
+        working-directory: arco_analytics
+        run: flutter build appbundle --release
+
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARCO-Android-APK
+          path: arco_analytics/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Publicar AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARCO-Android-AAB
+          path: arco_analytics/build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+  web:
+    name: Web + PWA
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Reconstruir e validar fonte oficial
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, hashlib
+          parts = sorted(Path(".source/v0_4").glob("part*.b64"))
+          raw = base64.b64decode("".join(p.read_text().strip() for p in parts))
+          Path("arco.zip").write_bytes(raw)
+          digest = hashlib.sha256(raw).hexdigest()
+          assert digest == "247421b7dfbf944fcd7cbd4d7c5a775d7afe01443b322a08d578d0934ee7fd6d", digest
+          print("Fonte oficial validada:", digest)
+          PY
+          unzip -q arco.zip
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Preservar arquivos PWA
+        working-directory: arco_analytics
+        run: cp -R web /tmp/arco-web
+
+      - name: Preparar Web
+        working-directory: arco_analytics
+        run: flutter create . --platforms=web --org com.arcoanalytics --project-name arco_analytics
+
+      - name: Restaurar PWA customizado
+        working-directory: arco_analytics
+        run: |
+          rm -rf web
+          cp -R /tmp/arco-web web
+
+      - name: Instalar dependências
+        working-directory: arco_analytics
+        run: flutter pub get
+
+      - name: Gerar Web/PWA
+        working-directory: arco_analytics
+        run: flutter build web --release
+
+      - name: Publicar Web/PWA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARCO-Web-PWA
+          path: arco_analytics/build/web
+          if-no-files-found: error
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Reconstruir e validar fonte oficial
+        shell: pwsh
+        run: |
+          $parts = Get-ChildItem ".source/v0_4/part*.b64" | Sort-Object Name
+          if ($parts.Count -eq 0) { throw "Partes da fonte oficial não encontradas" }
+          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ""
+          $bytes = [Convert]::FromBase64String($b64)
+          [IO.File]::WriteAllBytes("arco.zip", $bytes)
+          $hash = (Get-FileHash "arco.zip" -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $env:ARCO_SOURCE_SHA256) { throw "SHA256 inválido: $hash" }
+          Write-Host "Fonte oficial validada: $hash"
+          Expand-Archive -Path "arco.zip" -DestinationPath "." -Force
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Habilitar Windows
+        run: flutter config --enable-windows-desktop
+
+      - name: Preparar Windows
+        working-directory: arco_analytics
+        run: flutter create . --platforms=windows --org com.arcoanalytics --project-name arco_analytics
+
+      - name: Instalar dependências
+        working-directory: arco_analytics
+        run: flutter pub get
+
+      - name: Gerar Windows
+        working-directory: arco_analytics
+        run: flutter build windows --release
+
+      - name: Publicar Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARCO-Windows
+          path: arco_analytics/build/windows/x64/runner/Release/**
+          if-no-files-found: error
+
+  ios:
+    name: iOS unsigned
+    runs-on: macos-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Reconstruir e validar fonte oficial
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, hashlib
+          parts = sorted(Path(".source/v0_4").glob("part*.b64"))
+          raw = base64.b64decode("".join(p.read_text().strip() for p in parts))
+          Path("arco.zip").write_bytes(raw)
+          digest = hashlib.sha256(raw).hexdigest()
+          assert digest == "247421b7dfbf944fcd7cbd4d7c5a775d7afe01443b322a08d578d0934ee7fd6d", digest
+          print("Fonte oficial validada:", digest)
+          PY
+          unzip -q arco.zip
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Preparar iOS
+        working-directory: arco_analytics
+        run: flutter create . --platforms=ios --org com.arcoanalytics --project-name arco_analytics
+
+      - name: Instalar dependências
+        working-directory: arco_analytics
+        run: flutter pub get
+
+      - name: Gerar iOS sem assinatura
+        working-directory: arco_analytics
+        run: flutter build ios --release --no-codesign
+
+      - name: Compactar app iOS
+        working-directory: arco_analytics
+        run: ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app ARCO-iOS-unsigned.zip
+
+      - name: Publicar iOS
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARCO-iOS-Unsigned
+          path: arco_analytics/ARCO-iOS-unsigned.zip
+          if-no-files-found: error
