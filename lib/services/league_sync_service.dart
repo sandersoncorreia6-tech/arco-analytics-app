@@ -22,6 +22,10 @@ class LeagueSource {
   /// Domínio aceito para páginas extras configuradas pelo treinador.
   final String host;
 
+  /// Termos usados para buscar o arquivo da temporada na fonte oficial.
+  /// Mantém o histórico da equipe do treinador mesmo quando ele já saiu da home.
+  final List<String> seasonSearchTerms;
+
   const LeagueSource({
     required this.league,
     required this.name,
@@ -29,6 +33,7 @@ class LeagueSource {
     required this.pages,
     required this.proxyPath,
     required this.host,
+    this.seasonSearchTerms = const [],
   });
 
   static const fpb = LeagueSource(
@@ -43,6 +48,7 @@ class LeagueSource {
     ],
     proxyPath: 'api/fpb-online',
     host: 'fpb.com.br',
+    seasonSearchTerms: ['Tupã'],
   );
 
   static const lbc = LeagueSource(
@@ -124,11 +130,41 @@ class LeagueSyncService {
     return pageUrl == null ? uri : uri.replace(queryParameters: {'url': pageUrl});
   }
 
+  /// Páginas do arquivo da temporada atual. A FPB publica programação e
+  /// resultados em notícias; a home/Online mostra apenas uma janela recente.
+  List<Uri> _seasonArchivePages() {
+    if (source.seasonSearchTerms.isEmpty) return const [];
+    final year = DateTime.now().year;
+    final after = '${year.toString().padLeft(4, '0')}-01-01T00:00:00';
+    final before = '${(year + 1).toString().padLeft(4, '0')}-01-01T00:00:00';
+    return [
+      for (final term in source.seasonSearchTerms)
+        Uri.https(source.host, '/wp-json/wp/v2/posts', {
+          'per_page': '100',
+          'search': term,
+          'after': after,
+          'before': before,
+          '_fields': 'date,link,title,content',
+        }),
+    ];
+  }
+
   /// Endereços consultados nesta plataforma (Web passa pelo proxy).
+  ///
+  /// Importante: a Web agora encaminha TODAS as páginas configuradas pelo
+  /// proxy, inclusive o arquivo anual. Antes ela consultava apenas o endpoint
+  /// padrão do proxy e perdia a fonte de notícias usada no app nativo.
   List<Uri> endpoints({List<String> extraPages = const []}) {
-    final extras = extraPages.map(Uri.tryParse).whereType<Uri>().where(source.acceptsUrl).toList();
-    if (kIsWeb) return [_proxyUri(), for (final e in extras) _proxyUri(e.toString())];
-    return [for (final p in source.pages) Uri.parse(p), ...extras];
+    final extras = extraPages.map(Uri.tryParse).whereType<Uri>().where(source.acceptsUrl);
+    final targets = <Uri>[
+      for (final p in source.pages) Uri.parse(p),
+      ..._seasonArchivePages(),
+      ...extras,
+    ];
+
+    final unique = <String, Uri>{for (final uri in targets) uri.toString(): uri}.values.toList();
+    if (kIsWeb) return [for (final uri in unique) _proxyUri(uri.toString())];
+    return unique;
   }
 
   Future<LeagueSyncResult> fetch({List<String> extraPages = const []}) async {
