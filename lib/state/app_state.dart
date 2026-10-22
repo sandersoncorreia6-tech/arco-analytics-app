@@ -11,6 +11,7 @@ import '../models/play_event.dart';
 import '../models/player.dart';
 import '../models/box_score.dart';
 import '../analysis/scout_adapter.dart';
+import '../data/repositories/game_repository.dart';
 import '../services/fiba_livestats.dart';
 import '../services/league_sync_service.dart';
 import '../services/source_fetcher.dart';
@@ -75,6 +76,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final prefs = await SharedPreferences.getInstance();
       _restoreCoachSession(prefs);
+      _restoreCoachProfile(prefs);
       _restoreVideoLinks(prefs);
       _restoreTeam(prefs);
       for (final feed in feeds) {
@@ -366,6 +368,42 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     super.dispose();
+  }
+
+  // ---------------------------------------------------------------- Jogos (histórico)
+
+  /// Histórico completo: FPB + LBC + scout do ARCO, sem duplicatas.
+  GameRepository get gameRepository => GameRepository([
+        for (final f in feeds) ...f.games,
+        for (final g in games)
+          if (g.events.isNotEmpty) GameRepository.fromScout(g, coach, scoutVideoKey(g)),
+      ]);
+
+  /// Todos os jogos da equipe do treinador (clube + categoria + temporada).
+  List<CoachGame> get coachGames => gameRepository.forCoach(coach);
+
+  /// Jogo do scout ao vivo pelo id do histórico (para abrir o detalhe).
+  Game? scoutGameById(String id) => games.where((g) => scoutVideoKey(g) == id).firstOrNull;
+
+  // ---------------------------------------------------------------- Treinador / equipe
+
+  static const _coachKey = 'arco_coach_profile_v1';
+
+  void _restoreCoachProfile(SharedPreferences prefs) {
+    final raw = prefs.getString(_coachKey);
+    if (raw == null) return;
+    try {
+      coach = CoachProfile.fromJson((jsonDecode(raw) as Map).cast<String, dynamic>());
+    } catch (_) {}
+  }
+
+  /// Salva o cadastro da equipe acompanhada (clube, categoria, temporada...).
+  Future<void> updateCoach(CoachProfile profile) async {
+    coach = profile;
+    _seasons = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_coachKey, jsonEncode(profile.toJson()));
+    notifyListeners();
   }
 
   // ---------------------------------------------------------------- Sessão

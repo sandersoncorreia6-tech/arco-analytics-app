@@ -75,7 +75,7 @@ void main() {
     expect(PlayEvent.fromJson({'type': 'tipoFuturo', 'period': 1}), isNull);
   });
 
-  test('sincronização vazia não apaga cache e preserva jogos manuais', () {
+  test('sincronização acumula histórico e preserva jogos manuais', () {
     final feed = LeagueFeed(LeagueSource.fpb);
     feed.games.addAll([_game('a'), _game('m', manual: true)]);
 
@@ -84,7 +84,9 @@ void main() {
     expect(feed.warning, 'vazio');
 
     feed.apply(LeagueSyncResult(games: [_game('b', status: 'AO VIVO')], fetchedAt: DateTime(2026, 10, 22), attempts: const []));
-    expect(feed.games.map((g) => g.id).toList(), ['b', 'm']);
+    // Histórico: o jogo 'a' continua, mesmo ausente da nova leitura.
+    expect(feed.games.map((g) => g.id).toSet(), {'a', 'b', 'm'});
+    expect(feed.games.first.id, 'b'); // ao vivo primeiro
     expect(feed.hasLive, isTrue);
     expect(feed.refreshInterval, const Duration(seconds: 30));
     expect(feed.warning, isNull);

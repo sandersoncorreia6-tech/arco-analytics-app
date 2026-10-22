@@ -21,7 +21,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.textContaining('Olá, Adriano'), findsOneWidget);
 
-      for (final tab in ['Ligas', 'Stats', 'Equipe', 'Analytics', 'Mais', 'Home']) {
+      for (final tab in ['Jogos', 'Ligas', 'Stats', 'Elenco', 'Mais', 'Início']) {
         await tester.tap(find.text(tab).last);
         await tester.pump(const Duration(milliseconds: 300));
       }
@@ -44,8 +44,8 @@ void main() {
       }
       expect(find.textContaining('Olá, Adriano'), findsOneWidget);
       // O jogo ao vivo da equipe (Tupã, FPB) é destacado na Home.
-      await tester.scrollUntilVisible(find.text('Marília'), 200, scrollable: find.byType(Scrollable).hitTestable().first);
-      expect(find.text('Tupã'), findsWidgets);
+      await tester.scrollUntilVisible(find.textContaining('vs Marília'), 200, scrollable: find.byType(Scrollable).hitTestable().first);
+      expect(find.textContaining('Próximo'), findsWidgets);
 
       await tester.tap(find.text('Ligas').last);
       await tester.pump(const Duration(milliseconds: 300));

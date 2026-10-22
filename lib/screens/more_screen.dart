@@ -4,6 +4,8 @@ import '../config/app_config.dart';
 import '../models/league_game.dart';
 import '../widgets/league_widgets.dart';
 import 'analyst_screen.dart';
+import 'analytics_screen.dart';
+import 'my_team_screen.dart';
 import 'games_screen.dart';
 import 'insights_screen.dart';
 import 'reports_screen.dart';
@@ -28,6 +30,10 @@ class MoreScreen extends StatelessWidget {
         )),
         const SizedBox(height: 10),
         Card(child: Column(children: [
+          ListTile(leading: const Icon(Icons.badge_outlined), title: const Text('Minha equipe'), subtitle: Text('${state.coach.teamLabel} • ${state.coach.category} • temporada ${state.coach.season.isEmpty ? 'todas' : state.coach.season}'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyTeamScreen()))),
+          const Divider(height: 1),
+          ListTile(leading: const Icon(Icons.query_stats_outlined), title: const Text('Analytics'), subtitle: const Text('Mapa de arremessos, formações e four factors'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Analytics')), body: const AnalyticsScreen())))),
+          const Divider(height: 1),
           ListTile(leading: const Icon(Icons.sports_basketball_outlined), title: const Text('Jogos e scout ao vivo'), subtitle: const Text('Nova partida, histórico e pós-jogo'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GamesScreen()))),
           const Divider(height: 1),
           ListTile(leading: const Icon(Icons.psychology_alt_outlined), title: const Text('Analista ARCO'), subtitle: const Text('Perguntas, simulações e plano de treino'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AnalystScreen()))),

@@ -6,11 +6,9 @@ import '../state/app_state.dart';
 import '../widgets/insight_tile.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/section_card.dart';
-import '../models/league_game.dart';
-import '../state/league_feed.dart';
-import '../widgets/league_widgets.dart';
+import '../data/repositories/game_repository.dart';
 import 'analyst_screen.dart';
-import 'game_detail_screen.dart';
+import 'match_detail_screen.dart';
 import 'games_screen.dart';
 import 'live_scout_screen.dart';
 import 'new_game_screen.dart';
@@ -157,23 +155,46 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Builder(builder: (context) {
-          final mine = [for (final f in state.feeds) ...state.myTeamGames(f)]..sort(LeagueFeed.compareGames);
+          // Painel da equipe a partir do histórico completo (FPB + LBC + scout).
+          final mine = state.coachGames;
           final now = DateTime.now();
-          final today = DateTime(now.year, now.month, now.day);
-          final next = mine.where((g) => g.isLive || (!g.isFinal && g.scheduledAt != null && !g.scheduledAt!.isBefore(today))).firstOrNull;
+          final next = GameRepository.query(mine, GameView.upcoming, const GameFilter(), now: now).firstOrNull;
+          final last = GameRepository.query(mine, GameView.recent, const GameFilter(), now: now).firstOrNull;
+          final rec = GameRepository.record(mine);
+          void open(String id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MatchDetailScreen(gameId: id)));
+          Widget tile(String label, CoachGame g) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                onTap: () => open(g.game.id),
+                leading: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                title: Text('${g.isHome ? 'vs' : '@'} ${g.opponent}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text([if (g.game.hasScore) '${g.ourScore} × ${g.theirScore}', g.game.dateLabel, g.game.venue].where((e) => e.isNotEmpty).join(' • ')),
+                trailing: const Icon(Icons.chevron_right),
+              );
           return SectionCard(
-            title: 'Minha equipe nas competições',
+            title: 'Minha equipe • ${state.coach.teamLabel}',
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
-                for (final f in state.feeds) ...[
-                  Expanded(child: _MiniStat(label: f.league, value: gamesCount(state.myTeamGames(f).length), warning: f.error != null)),
-                  if (f != state.feeds.last) const SizedBox(width: 10),
-                ],
+                Expanded(child: _MiniStat(label: 'Campanha', value: '${rec.wins}V ${rec.losses}D')),
+                const SizedBox(width: 10),
+                Expanded(child: _MiniStat(label: 'Aproveitamento', value: '${rec.pct.toStringAsFixed(0)}%')),
+                const SizedBox(width: 10),
+                Expanded(child: _MiniStat(label: 'Jogos', value: '${mine.length}', warning: state.feeds.any((f) => f.error != null))),
               ]),
-              if (next != null) ...[
-                const SizedBox(height: 10),
-                LeagueGameTile(game: next),
-              ],
+              if (next != null) tile('Próximo', next),
+              if (last != null) tile('Último', last),
+              if (mine.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text('Nenhum jogo da equipe ainda. O ARCO busca a FPB/LBC automaticamente.', style: TextStyle(color: Colors.white60)),
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GamesScreen())),
+                  icon: const Icon(Icons.event_note),
+                  label: Text('Todos os jogos da temporada (${mine.length})'),
+                ),
+              ),
             ]),
           );
         }),
@@ -181,25 +202,6 @@ class HomeScreen extends StatelessWidget {
         SectionCard(
           title: 'Insights prioritários',
           child: Column(children: insights.take(3).map((e) => InsightTile(insight: e)).toList()),
-        ),
-        const SizedBox(height: 14),
-        SectionCard(
-          title: 'Último jogo',
-          child: InkWell(
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: game))),
-            child: Row(
-              children: [
-                Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('ARCO  ${game.ourScore}  ×  ${game.opponentScore}  ${game.opponent}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-                  const SizedBox(height: 7),
-                  Text(game.won ? 'Vitória: revise os fatores que sustentaram a vantagem.' : 'Derrota: procure os fatores que mais custaram posses.',
-                      style: const TextStyle(color: Colors.white70))
-                ])),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
-          ),
         ),
       ],
     );
@@ -213,15 +215,15 @@ class _MiniStat extends StatelessWidget {
   const _MiniStat({required this.label, required this.value, this.warning = false});
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(color: Colors.white.withValues(alpha: .04), borderRadius: BorderRadius.circular(12)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Text(label, style: const TextStyle(color: Colors.white60)),
-            if (warning) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.cloud_off_outlined, size: 14, color: Colors.orangeAccent)),
+            Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60, fontSize: 12))),
+            if (warning) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.cloud_off_outlined, size: 13, color: Colors.orangeAccent)),
           ]),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          FittedBox(fit: BoxFit.scaleDown, child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18))),
         ]),
       );
 }

@@ -38,20 +38,51 @@ class LeagueFeed {
   String get syncKey => '${league.toLowerCase()}_last_sync_v2';
   String get pagesKey => '${league.toLowerCase()}_extra_pages_v1';
 
-  /// Aplica o resultado da sincronização sem descartar jogos importados
-  /// manualmente e sem apagar o cache quando a página veio vazia.
+  /// Aplica o resultado da sincronização como HISTÓRICO: jogos novos entram,
+  /// jogos conhecidos são atualizados (placar, horário, status) e nenhum jogo
+  /// antigo é descartado — as páginas da liga mostram só a rodada/notícias
+  /// recentes, e substituir a lista fazia a temporada "encolher".
   void apply(LeagueSyncResult result) {
     lastSyncAt = result.fetchedAt;
     lastAttempts = result.attempts;
     error = null;
     warning = result.warning;
-    if (result.games.isEmpty) return;
-    final manual = games.where((g) => g.manual && !result.games.any((r) => r.id == g.id));
-    final merged = [...result.games, ...manual];
+    upsert(result.games);
+  }
+
+  /// Insere/atualiza por gameId; reconhece o mesmo jogo vindo de outra página
+  /// (mesmas equipes no mesmo dia) para não duplicar.
+  void upsert(Iterable<LeagueGame> incoming) {
+    final byId = {for (final g in games) g.id: g};
+    final byMatchup = {for (final g in games) _matchupKey(g): g.id};
+    for (final n in incoming) {
+      var existingId = byId.containsKey(n.id) ? n.id : byMatchup[_matchupKey(n)];
+      // Fonte sem categoria (ex.: notícia): casa com o único jogo das mesmas
+      // equipes no mesmo dia. Em fins de semana com várias categorias do mesmo
+      // confronto não há casamento único, e o jogo entra separado.
+      if (existingId == null && n.categoryId.isEmpty && n.scheduledAt != null) {
+        final loose = _matchupKey(n).replaceFirst('||', '|');
+        final same = byId.values.where((g) => _matchupKey(g).replaceFirst('|${g.categoryId}|', '|') == loose).toList();
+        if (same.length == 1) existingId = same.first.id;
+      }
+      if (existingId != null && byId[existingId] != null) {
+        byId[existingId] = byId[existingId]!.mergeNewer(n);
+      } else {
+        byId[n.id] = n;
+        byMatchup[_matchupKey(n)] = n.id;
+      }
+    }
     games
       ..clear()
-      ..addAll(merged);
+      ..addAll(byId.values);
     sort();
+  }
+
+  static String _matchupKey(LeagueGame g) {
+    String n(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9à-ÿ]'), '');
+    final d = g.scheduledAt;
+    final day = d == null ? 'sem-data:${g.id}' : '${d.year}-${d.month}-${d.day}';
+    return '${n(g.homeTeam)}|${n(g.awayTeam)}|${g.categoryId}|$day';
   }
 
   void sort() => games.sort(compareGames);
