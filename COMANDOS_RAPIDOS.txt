@@ -1,0 +1,15 @@
+ANDROID — APK
+flutter pub get
+flutter build apk --release
+
+ANDROID — AAB
+flutter pub get
+flutter build appbundle --release
+
+WEB
+flutter pub get
+flutter build web --release
+
+DESENVOLVIMENTO
+flutter pub get
+flutter run
