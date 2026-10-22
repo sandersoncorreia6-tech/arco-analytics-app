@@ -117,14 +117,27 @@ void main() {
     expect(coach.isMyGame(g('Bauru', 'Lins', 'SUB 16 M')), isFalse);
   });
 
-  test('FPB inclui o arquivo anual do Tupã na sincronização', () {
-    final endpoints = LeagueSyncService(LeagueSource.fpb).endpoints();
-    final archive = endpoints.where((u) => u.path == '/wp-json/wp/v2/posts' && u.queryParameters['search'] == 'Tupã').toList();
+  test('Schedule estruturado da FPB/CBB reconhece o Tupã Sub-16 masculino', () {
+    const body = r'''0:{"a":"$@1","f":""}
+1:[{"matchId":"x1","competitionId":"323","matchStatus":"COMPLETE","matchTime":"2026-03-17T19:00:00","competitionName":"SUB 16M 2026","venue":{"venueName":"Ginásio Elias Kenayfes"},"competitors":[{"isHomeCompetitor":1,"teamName":"F.R. TUPÃ","scoreString":"72"},{"isHomeCompetitor":0,"teamName":"SÃO JOSÉ DOS CAMPOS BASKETBALL","scoreString":"61"}]}]''';
 
-    expect(archive, hasLength(1));
-    expect(archive.single.queryParameters['per_page'], '100');
-    expect(archive.single.queryParameters['after'], startsWith('${DateTime.now().year}-01-01'));
-    expect(archive.single.queryParameters['before'], startsWith('${DateTime.now().year + 1}-01-01'));
+    final parsed = LeagueSyncService.parseCbbSchedule(body, DateTime(2026, 10, 22));
+    expect(parsed, hasLength(1));
+    expect(parsed.single.homeTeam, 'F.R. TUPÃ');
+    expect(parsed.single.awayTeam, 'SÃO JOSÉ DOS CAMPOS BASKETBALL');
+    expect(parsed.single.homeScore, 72);
+    expect(parsed.single.awayScore, 61);
+    expect(parsed.single.competition, 'SUB 16 M');
+    expect(parsed.single.status, 'FINAL');
+    expect(parsed.single.scheduledAt, DateTime(2026, 3, 17, 19));
+    expect(parsed.single.venue, 'Ginásio Elias Kenayfes');
+
+    final game = LeagueSyncService(LeagueSource.fpb).toLeagueGame(
+      parsed.single,
+      fetchedAt: DateTime(2026, 10, 22),
+      sourceUrl: LeagueSource.fpb.officialUrl,
+    );
+    expect(CoachProfile.adrianoMiao.isMyGame(game), isTrue);
   });
 
   test('páginas extras: domínio da liga na Web, qualquer site no app', () {
