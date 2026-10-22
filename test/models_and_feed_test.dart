@@ -117,6 +117,16 @@ void main() {
     expect(coach.isMyGame(g('Bauru', 'Lins', 'SUB 16 M')), isFalse);
   });
 
+  test('FPB inclui o arquivo anual do Tupã na sincronização', () {
+    final endpoints = LeagueSyncService(LeagueSource.fpb).endpoints();
+    final archive = endpoints.where((u) => u.path == '/wp-json/wp/v2/posts' && u.queryParameters['search'] == 'Tupã').toList();
+
+    expect(archive, hasLength(1));
+    expect(archive.single.queryParameters['per_page'], '100');
+    expect(archive.single.queryParameters['after'], startsWith('${DateTime.now().year}-01-01'));
+    expect(archive.single.queryParameters['before'], startsWith('${DateTime.now().year + 1}-01-01'));
+  });
+
   test('páginas extras: domínio da liga na Web, qualquer site no app', () {
     expect(LeagueSource.lbc.isLeagueHost(Uri.parse('https://www.lbc.org.br/tabela/sub-17')), isTrue);
     expect(LeagueSource.lbc.isLeagueHost(Uri.parse('https://lbc.org.br/jogos')), isTrue);
