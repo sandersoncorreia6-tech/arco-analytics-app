@@ -143,6 +143,8 @@ class LocalGameStore {
         'period': event.period,
         'timestamp': event.timestamp.toIso8601String(),
         'lineupIds': event.lineupIds,
+        'shotX': event.shotX,
+        'shotY': event.shotY,
       };
 
   PlayEvent _eventFromJson(Map<String, dynamic> json) {
@@ -161,6 +163,8 @@ class LocalGameStore {
       lineupIds: (json['lineupIds'] as List<dynamic>? ?? const [])
           .map((value) => value.toString())
           .toList(),
+      shotX: (json['shotX'] as num?)?.toDouble(),
+      shotY: (json['shotY'] as num?)?.toDouble(),
     );
   }
 
