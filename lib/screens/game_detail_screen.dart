@@ -3,9 +3,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/game.dart';
 import '../models/play_event.dart';
 import '../services/analytics_service.dart';
+import '../services/shot_chart_service.dart';
 import '../state/app_state.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/section_card.dart';
+import '../widgets/shot_chart.dart';
 
 class GameDetailScreen extends StatelessWidget {
   final Game game;
@@ -16,6 +18,7 @@ class GameDetailScreen extends StatelessWidget {
     final state = AppScope.of(context);
     final names = {for (final p in state.players) p.id: p.name};
     final lineups = AnalyticsService.lineupsFromGame(game, names);
+    final shots = ShotChartService.fromGame(game);
     final videoUrl = state.videoLinks[game.id] ?? '';
     final off = AnalyticsService.offensiveRating(points: game.ourScore, possessions: game.possessions);
     final def = AnalyticsService.defensiveRating(opponentPoints: game.opponentScore, possessions: game.possessions);
@@ -101,6 +104,17 @@ class GameDetailScreen extends StatelessWidget {
               ),
             ),
           ],
+          if (shots.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            SectionCard(
+              title: 'Shot chart do jogo',
+              trailing: Text(
+                '${shots.length} arremessos localizados',
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              child: ShotChart(shots: shots),
+            ),
+          ],
           if (game.events.isNotEmpty) ...[
             const SizedBox(height: 14),
             SectionCard(
@@ -126,7 +140,11 @@ class GameDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   ...game.events.reversed.take(30).map((event) {
-                    final elapsed = event.timestamp.difference(game.date).inSeconds.clamp(0, 999999);
+                    final elapsed = event.timestamp
+                        .difference(game.date)
+                        .inSeconds
+                        .clamp(0, 999999)
+                        .toInt();
                     final player = event.playerId == null ? '' : (names[event.playerId] ?? event.playerId!);
                     return ListTile(
                       dense: true,
