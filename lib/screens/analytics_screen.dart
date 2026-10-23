@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/mock_repository.dart';
 import '../services/advanced_analytics_service.dart';
 import '../services/analytics_service.dart';
+import '../services/shot_chart_service.dart';
 import '../state/app_state.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/section_card.dart';
@@ -19,6 +20,7 @@ class AnalyticsScreen extends StatelessWidget {
     final recent = sample.length <= 3 ? sample : ([...sample]..sort((a, b) => b.date.compareTo(a.date))).take(3).toList();
     final recentSummary = AdvancedAnalyticsService.summarize(recent);
     final names = {for (final p in state.players) p.id: p.name};
+    final realShots = latest == null ? const [] : ShotChartService.fromGame(latest);
     final recorded = latest == null ? const [] : AnalyticsService.lineupsFromGame(latest, names);
     final lineups = recorded.isNotEmpty ? recorded : ([...MockRepository.lineups]..sort((a, b) => b.netRating.compareTo(a.netRating)));
 
@@ -84,8 +86,11 @@ class AnalyticsScreen extends StatelessWidget {
         const SizedBox(height: 14),
         SectionCard(
           title: 'Shot chart',
-          trailing: const Text('coordenadas demo', style: TextStyle(color: Colors.white54, fontSize: 12)),
-          child: ShotChart(shots: MockRepository.shots),
+          trailing: Text(
+            realShots.isEmpty ? 'coordenadas demo' : 'scout real',
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          child: ShotChart(shots: realShots.isEmpty ? MockRepository.shots : realShots),
         ),
       ],
     );
