@@ -19,16 +19,34 @@ import '../services/local_game_store.dart';
 import '../services/auth_gateway.dart';
 
 class AppState extends ChangeNotifier {
-  AppState() {
-    _restoreCoachSession();
-    _restoreVideoLinks();
-    _restoreFpbCache();
-    _restoreLbcCache();
-    _restoreSavedGames();
-    syncFpbNow();
-    syncLbcNow();
-    _fpbTimer = Timer.periodic(const Duration(seconds: 30), (_) => syncFpbNow(silent: true));
-    _lbcTimer = Timer.periodic(const Duration(seconds: 60), (_) => syncLbcNow(silent: true));
+  AppState({bool autoSync = true}) {
+    unawaited(_bootstrap(autoSync: autoSync));
+  }
+
+  Future<void> _bootstrap({required bool autoSync}) async {
+    try {
+      await _restoreCoachSession();
+      await _restoreVideoLinks();
+      await _restoreFpbCache();
+      await _restoreLbcCache();
+      await _restoreSavedGames();
+    } catch (_) {
+      // Falhas de cache/plugin não podem impedir o app de abrir.
+    }
+
+    if (!autoSync) return;
+
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    unawaited(syncFpbNow(silent: true));
+    unawaited(syncLbcNow(silent: true));
+    _fpbTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => syncFpbNow(silent: true),
+    );
+    _lbcTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => syncLbcNow(silent: true),
+    );
   }
 
   final FpbLiveService _fpbService = FpbLiveService();

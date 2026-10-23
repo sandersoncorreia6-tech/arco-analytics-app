@@ -5,14 +5,25 @@ import 'state/app_state.dart';
 import 'theme/arco_theme.dart';
 
 class ArcoApp extends StatefulWidget {
-  const ArcoApp({super.key});
+  final bool autoSync;
+
+  const ArcoApp({
+    super.key,
+    this.autoSync = true,
+  });
 
   @override
   State<ArcoApp> createState() => _ArcoAppState();
 }
 
 class _ArcoAppState extends State<ArcoApp> {
-  final AppState state = AppState();
+  late final AppState state;
+
+  @override
+  void initState() {
+    super.initState();
+    state = AppState(autoSync: widget.autoSync);
+  }
 
   @override
   void dispose() {
