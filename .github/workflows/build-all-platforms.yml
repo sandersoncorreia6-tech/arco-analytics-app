@@ -100,14 +100,14 @@ jobs:
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: ARCO-Android-APK-v0.5
+          name: ARCO-Android-APK-v0.6
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
 
       - name: Publicar AAB
         uses: actions/upload-artifact@v4
         with:
-          name: ARCO-Android-AAB-v0.5
+          name: ARCO-Android-AAB-v0.6
           path: build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
@@ -144,7 +144,7 @@ jobs:
       - name: Publicar Web/PWA
         uses: actions/upload-artifact@v4
         with:
-          name: ARCO-Web-PWA-v0.5
+          name: ARCO-Web-PWA-v0.6
           path: build/web
           if-no-files-found: error
 
@@ -173,7 +173,7 @@ jobs:
       - name: Publicar Windows
         uses: actions/upload-artifact@v4
         with:
-          name: ARCO-Windows-v0.5
+          name: ARCO-Windows-v0.6
           path: build/windows/x64/runner/Release/**
           if-no-files-found: error
 
@@ -204,6 +204,6 @@ jobs:
       - name: Publicar iOS
         uses: actions/upload-artifact@v4
         with:
-          name: ARCO-iOS-Unsigned-v0.5
+          name: ARCO-iOS-Unsigned-v0.6
           path: ARCO-iOS-unsigned.zip
           if-no-files-found: error
