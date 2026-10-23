@@ -36,7 +36,7 @@ class GamesScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${state.teamContext.displayName} • temporada ${state.teamContext.seasonYear}',
+                    '${state.teamContext.displayName} • temporada ${state.teamContext.seasonYear} • ${state.teamContext.federativePathLabel}',
                     style: const TextStyle(color: Colors.white60),
                   ),
                 ],
