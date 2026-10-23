@@ -92,7 +92,7 @@ class AppState extends ChangeNotifier {
     fpbSyncing = true;
     if (!silent) notifyListeners();
     try {
-      final result = await _fpbService.fetchOnlineGames();
+      final result = await _fpbService.fetchOnlineGames(teamAliases: teamContext.aliases);
       fpbGames
         ..clear()
         ..addAll(result.games);
