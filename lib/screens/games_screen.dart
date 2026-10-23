@@ -7,327 +7,223 @@ import 'game_detail_screen.dart';
 import 'live_scout_screen.dart';
 import 'new_game_screen.dart';
 
-class GamesScreen extends StatelessWidget {
+class GamesScreen extends StatefulWidget {
   const GamesScreen({super.key});
+
+  @override
+  State<GamesScreen> createState() => _GamesScreenState();
+}
+
+class _GamesScreenState extends State<GamesScreen> {
+  String league = 'TODOS';
+  String category = 'TODAS';
+  String season = 'TODAS';
+  String status = 'TODOS';
 
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final history = state.coachSeasonGames;
-    final finals = history.where((g) => g.isFinal).length;
-    final upcoming = history.where((g) => g.isUpcoming).length;
-    final live = history.where((g) => g.isLive).length;
+    final all = state.coachSeasonGames;
+    final categories = <String>{'TODAS', ...all.map((g) => g.category).where((v) => v.isNotEmpty)}.toList()..sort();
+    final seasons = <String>{'TODAS', ...all.map((g) => g.seasonId).where((v) => v.isNotEmpty)}.toList()..sort();
 
-    return ListView(
-      padding: const EdgeInsets.all(18),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Jogos',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${state.teamContext.displayName} • temporada ${state.teamContext.seasonYear} • ${state.teamContext.federativePathLabel}',
-                    style: const TextStyle(color: Colors.white60),
-                  ),
-                ],
-              ),
-            ),
-            FilledButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const NewGameScreen()),
-              ),
-              icon: const Icon(Icons.add),
-              label: const Text('Novo scout'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Temporada da equipe',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 17,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: state.fpbSyncing || state.lbcSyncing
-                          ? null
-                          : state.syncAllLeagues,
-                      icon: const Icon(Icons.refresh_rounded),
-                      tooltip: 'Atualizar FPB e LBC',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _SummaryChip(label: 'TOTAL', value: history.length),
-                    _SummaryChip(label: 'FINALIZADOS', value: finals),
-                    _SummaryChip(label: 'PRÓXIMOS', value: upcoming),
-                    if (live > 0) _SummaryChip(label: 'AO VIVO', value: live),
-                  ],
-                ),
-                if (state.fpbSyncing || state.lbcSyncing) ...[
-                  const SizedBox(height: 14),
-                  const LinearProgressIndicator(),
-                ],
-              ],
-            ),
-          ),
-        ),
-        if (state.activeGame != null) ...[
-          const SizedBox(height: 14),
-          Card(
-            child: ListTile(
-              leading: const CircleAvatar(
-                child: Icon(Icons.sensors_rounded),
-              ),
-              title: Text(
-                'AO VIVO • vs ${state.activeGame!.opponent}',
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: Text(
-                '${state.activeGame!.ourScore} × ${state.activeGame!.opponentScore} • ${state.activeGame!.period}Q',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LiveScoutScreen()),
-              ),
-            ),
+    if (!categories.contains(category)) category = 'TODAS';
+    if (!seasons.contains(season)) season = 'TODAS';
+
+    final history = all.where((g) {
+      if (league != 'TODOS' && g.league != league) return false;
+      if (category != 'TODAS' && g.category != category) return false;
+      if (season != 'TODAS' && g.seasonId != season) return false;
+      if (status == 'FINALIZADOS' && !g.isFinal) return false;
+      if (status == 'PRÓXIMOS' && !g.isUpcoming) return false;
+      if (status == 'AO VIVO' && !g.isLive) return false;
+      return true;
+    }).toList();
+
+    final finals = all.where((g) => g.isFinal).length;
+    final upcoming = all.where((g) => g.isUpcoming).length;
+    final live = all.where((g) => g.isLive).length;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Jogos e temporada'),
+        actions: [
+          IconButton(
+            onPressed: state.fpbSyncing || state.lbcSyncing ? null : state.syncAllLeagues,
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Atualizar FPB e LBC',
           ),
         ],
-        const SizedBox(height: 22),
-        const _SectionTitle(
-          title: 'Histórico completo da temporada',
-          subtitle:
-              'Jogos identificados para a equipe nas fontes FPB, LBC e no scout do ARCO.',
-        ),
-        const SizedBox(height: 10),
-        if (history.isEmpty)
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          Text(
+            '${state.teamContext.displayName} • temporada ${state.teamContext.seasonYear} • ${state.teamContext.federativePathLabel}',
+            style: const TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _SummaryChip(label: 'TOTAL', value: all.length),
+              _SummaryChip(label: 'FINALIZADOS', value: finals),
+              _SummaryChip(label: 'PRÓXIMOS', value: upcoming),
+              if (live > 0) _SummaryChip(label: 'AO VIVO', value: live),
+            ],
+          ),
+          if (state.fpbSyncing || state.lbcSyncing) ...[
+            const SizedBox(height: 12),
+            const LinearProgressIndicator(),
+          ],
+          const SizedBox(height: 16),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Nenhum jogo oficial da equipe foi identificado ainda.',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Os 3 jogos de demonstração não são mais tratados como o histórico da temporada. Atualize FPB/LBC para buscar partidas reais.',
-                    style: TextStyle(color: Colors.white60),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: state.syncAllLeagues,
-                    icon: const Icon(Icons.sync),
-                    label: const Text('Atualizar fontes'),
+                  const Text('Filtros', style: TextStyle(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    children: [
+                      _Filter(
+                        label: 'Liga',
+                        value: league,
+                        values: const ['TODOS', 'FPB', 'LBC', 'ARCO'],
+                        onChanged: (v) => setState(() => league = v),
+                      ),
+                      _Filter(
+                        label: 'Categoria',
+                        value: category,
+                        values: categories,
+                        onChanged: (v) => setState(() => category = v),
+                      ),
+                      _Filter(
+                        label: 'Temporada',
+                        value: season,
+                        values: seasons,
+                        onChanged: (v) => setState(() => season = v),
+                      ),
+                      _Filter(
+                        label: 'Status',
+                        value: status,
+                        values: const ['TODOS', 'FINALIZADOS', 'PRÓXIMOS', 'AO VIVO'],
+                        onChanged: (v) => setState(() => status = v),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-          )
-        else
-          ...history.map(
-            (game) => _OfficialGameCard(
+          ),
+          if (state.activeGame != null) ...[
+            const SizedBox(height: 14),
+            Card(
+              child: ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.sensors_rounded)),
+                title: Text('AO VIVO • vs ${state.activeGame!.opponent}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text('${state.activeGame!.ourScore} × ${state.activeGame!.opponentScore} • ${state.activeGame!.period}Q'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LiveScoutScreen())),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              const Expanded(child: Text('Histórico da temporada', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
+              FilledButton.icon(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewGameScreen())),
+                icon: const Icon(Icons.add),
+                label: const Text('Scout'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (history.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(18),
+                child: Text('Nenhum jogo encontrado com estes filtros.'),
+              ),
+            )
+          else
+            ...history.map((game) => _OfficialGameCard(
               game: game,
               onTap: () => _openHistoryGame(context, state, game),
-            ),
-          ),
-        const SizedBox(height: 24),
-        const _SectionTitle(
-          title: 'Jogos analisados no ARCO',
-          subtitle:
-              'Scouts com estatísticas detalhadas. Itens marcados como DEMO servem apenas para demonstração.',
-        ),
-        const SizedBox(height: 10),
-        ...state.games.map((g) {
-          final efg = AnalyticsService.efg(
-            fgm: g.fgm,
-            threePm: g.threePm,
-            fga: g.fga,
-          );
-          final tov = AnalyticsService.turnoverPct(
-            turnovers: g.turnovers,
-            possessions: g.possessions,
-          );
-          final isDemo = g.source == 'mock';
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => GameDetailScreen(game: g)),
+            )),
+          const SizedBox(height: 22),
+          const Text('Scouts analisados no ARCO', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          ...state.games.map((g) {
+            final efg = AnalyticsService.efg(fgm: g.fgm, threePm: g.threePm, fga: g.fga);
+            return Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: CircleAvatar(child: Text(g.source == 'mock' ? 'D' : 'A')),
+                title: Text('vs ${g.opponent}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text('${g.ourScore} × ${g.opponentScore} • eFG ${efg.toStringAsFixed(1)}% • ${g.possessions} posses${g.source == 'mock' ? ' • DEMO' : ''}'),
+                trailing: const Icon(Icons.analytics_outlined),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: g))),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'vs ${g.opponent}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 17,
-                            ),
-                          ),
-                        ),
-                        if (isDemo)
-                          const Padding(
-                            padding: EdgeInsets.only(right: 8),
-                            child: Chip(label: Text('DEMO')),
-                          ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: (g.won
-                                    ? Colors.greenAccent
-                                    : Colors.redAccent)
-                                .withOpacity(.12),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            g.won ? 'VITÓRIA' : 'DERROTA',
-                            style: TextStyle(
-                              color: g.won
-                                  ? Colors.greenAccent
-                                  : Colors.redAccent,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      '${g.ourScore} × ${g.opponentScore}',
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      children: [
-                        Text('eFG ${efg.toStringAsFixed(1)}%'),
-                        Text('TOV ${tov.toStringAsFixed(1)}%'),
-                        Text('${g.possessions} posses'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ],
+            );
+          }),
+        ],
+      ),
     );
   }
 
-  Future<void> _openHistoryGame(
-    BuildContext context,
-    AppState state,
-    CoachGameRecord record,
-  ) async {
+  Future<void> _openHistoryGame(BuildContext context, AppState state, CoachGameRecord record) async {
     final analyzed = state.analyzedGameById(record.arcoGameId);
     if (analyzed != null) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => GameDetailScreen(game: analyzed)),
-      );
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => GameDetailScreen(game: analyzed)));
       return;
     }
-
     if (record.sourceUrl.isNotEmpty) {
       final uri = Uri.tryParse(record.sourceUrl);
-      if (uri != null) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
+      if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+}
+
+class _Filter extends StatelessWidget {
+  final String label;
+  final String value;
+  final List<String> values;
+  final ValueChanged<String> onChanged;
+
+  const _Filter({required this.label, required this.value, required this.values, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButton<String>(
+      value: values.contains(value) ? value : values.first,
+      hint: Text(label),
+      items: values.map((v) => DropdownMenuItem(value: v, child: Text(v == 'TODAS' || v == 'TODOS' ? '$label: Todos' : v))).toList(),
+      onChanged: (v) { if (v != null) onChanged(v); },
+    );
   }
 }
 
 class _SummaryChip extends StatelessWidget {
   final String label;
   final int value;
-
   const _SummaryChip({required this.label, required this.value});
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.white12),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        '$label  $value',
-        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const _SectionTitle({required this.title, required this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 4),
-        Text(subtitle, style: const TextStyle(color: Colors.white60)),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(border: Border.all(color: Colors.white12), borderRadius: BorderRadius.circular(12)),
+    child: Text('$label  $value', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+  );
 }
 
 class _OfficialGameCard extends StatelessWidget {
   final CoachGameRecord game;
   final VoidCallback onTap;
-
   const _OfficialGameCard({required this.game, required this.onTap});
 
   @override
@@ -338,25 +234,14 @@ class _OfficialGameCard extends StatelessWidget {
       if (game.scheduledAt != null) _date(game.scheduledAt!),
       if (game.hasArcoStats) 'SCOUT ARCO',
     ];
-
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         onTap: onTap,
-        leading: CircleAvatar(
-          child: Text(
-            game.league.length > 4 ? game.league.substring(0, 4) : game.league,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
-          ),
-        ),
-        title: Text(
-          '${game.homeTeam}  ${game.scoreLabel}  ${game.awayTeam}',
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
+        leading: CircleAvatar(child: Text(game.league.length > 4 ? game.league.substring(0, 4) : game.league, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900))),
+        title: Text('${game.homeTeam}  ${game.scoreLabel}  ${game.awayTeam}', style: const TextStyle(fontWeight: FontWeight.w800)),
         subtitle: Text(metadata.where((e) => e.isNotEmpty).join(' • ')),
-        trailing: Icon(
-          game.hasArcoStats ? Icons.analytics_rounded : Icons.open_in_new,
-        ),
+        trailing: Icon(game.hasArcoStats ? Icons.analytics_rounded : Icons.open_in_new),
       ),
     );
   }
