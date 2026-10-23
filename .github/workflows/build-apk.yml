@@ -1,4 +1,4 @@
-name: Build ARCO APK (manual)
+name: ARCO - APK Android Manual
 
 on:
   workflow_dispatch:
@@ -7,28 +7,16 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  apk:
     runs-on: ubuntu-latest
     steps:
-      - name: Baixar repositório
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Reconstruir e validar fonte oficial v0.4
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64, hashlib
-          parts = sorted(Path(".source/v0_4").glob("part*.b64"))
-          assert parts, "Partes da fonte oficial não encontradas"
-          raw = base64.b64decode("".join(p.read_text().strip() for p in parts))
-          Path("arco.zip").write_bytes(raw)
-          digest = hashlib.sha256(raw).hexdigest()
-          expected = "247421b7dfbf944fcd7cbd4d7c5a775d7afe01443b322a08d578d0934ee7fd6d"
-          assert digest == expected, f"SHA256 inválido: {digest}"
-          print("Fonte oficial validada:", digest)
-          PY
-          unzip -q arco.zip
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
       - name: Instalar Flutter
         uses: subosito/flutter-action@v2
@@ -37,20 +25,29 @@ jobs:
           cache: true
 
       - name: Preparar Android
-        working-directory: arco_analytics
-        run: flutter create . --platforms=android --org com.arcoanalytics --project-name arco_analytics
-
-      - name: Instalar dependências
-        working-directory: arco_analytics
-        run: flutter pub get
+        run: |
+          flutter create . --platforms=android --org com.arcoanalytics --project-name arco_analytics
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          for name in ("android/app/build.gradle.kts", "android/app/build.gradle"):
+              p = Path(name)
+              if not p.exists():
+                  continue
+              s = p.read_text()
+              s = re.sub(r'namespace\s*=\s*"[^"]+"', 'namespace = "com.arcoanalytics.app"', s)
+              s = re.sub(r'applicationId\s*=\s*"[^"]+"', 'applicationId = "com.arcoanalytics.app"', s)
+              s = re.sub(r"applicationId\s+['\"][^'\"]+['\"]", 'applicationId "com.arcoanalytics.app"', s)
+              p.write_text(s)
+          PY
+          flutter pub get
 
       - name: Gerar APK
-        working-directory: arco_analytics
         run: flutter build apk --release
 
       - name: Salvar APK
         uses: actions/upload-artifact@v4
         with:
-          name: ARCO-Android-APK
-          path: arco_analytics/build/app/outputs/flutter-apk/app-release.apk
+          name: ARCO-Android-APK-v0.6
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
