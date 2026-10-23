@@ -23,6 +23,8 @@ class PlayEvent {
   final int period;
   final DateTime timestamp;
   final List<String> lineupIds;
+  final double? shotX;
+  final double? shotY;
 
   const PlayEvent({
     required this.type,
@@ -30,7 +32,23 @@ class PlayEvent {
     required this.timestamp,
     this.playerId,
     this.lineupIds = const [],
+    this.shotX,
+    this.shotY,
   });
+
+  bool get hasShotLocation => shotX != null && shotY != null;
+
+  bool get isShot =>
+      type == PlayEventType.twoMade ||
+      type == PlayEventType.twoMiss ||
+      type == PlayEventType.threeMade ||
+      type == PlayEventType.threeMiss;
+
+  bool get shotMade =>
+      type == PlayEventType.twoMade || type == PlayEventType.threeMade;
+
+  int get shotPoints =>
+      type == PlayEventType.threeMade || type == PlayEventType.threeMiss ? 3 : 2;
 }
 
 class PlayerGameStats {
