@@ -16,6 +16,7 @@ import '../services/fpb_live_service.dart';
 import '../services/lbc_live_service.dart';
 import '../services/coach_schedule_service.dart';
 import '../services/local_game_store.dart';
+import '../services/auth_gateway.dart';
 
 class AppState extends ChangeNotifier {
   AppState() {
@@ -34,11 +35,14 @@ class AppState extends ChangeNotifier {
   final LbcLiveService _lbcService = LbcLiveService();
   final CoachScheduleService _coachScheduleService = const CoachScheduleService();
   final LocalGameStore _localGameStore = LocalGameStore();
+  final SupabaseAuthGateway _authGateway = const SupabaseAuthGateway();
   final TeamContext teamContext = TeamContext.tupaMonstrinho2026;
   Timer? _fpbTimer;
   Timer? _lbcTimer;
 
   bool loggedIn = false;
+  String? lastAuthError;
+  String? cloudUserId;
   CoachProfile coach = CoachProfile.adrianoMiao;
   final Map<String, String> videoLinks = {};
 
@@ -166,9 +170,14 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> login(String email, String password) async {
-    final normalized = email.trim().toLowerCase();
-    final ok = normalized == 'adriano.miao@arco.app' && password == 'ARCO-DEMO';
-    if (!ok) return false;
+    lastAuthError = null;
+    final result = await _authGateway.signIn(email, password);
+    if (!result.success) {
+      lastAuthError = result.error;
+      notifyListeners();
+      return false;
+    }
+    cloudUserId = result.userId;
     loggedIn = true;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('coach_logged_in_v1', true);
