@@ -346,7 +346,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addEvent(PlayEventType type, {String? playerId}) {
+  void addEvent(
+    PlayEventType type, {
+    String? playerId,
+    double? shotX,
+    double? shotY,
+  }) {
     final game = activeGame;
     if (game == null || game.finished) return;
     final id = playerId ?? game.selectedPlayerId;
@@ -408,7 +413,15 @@ class AppState extends ChangeNotifier {
       case PlayEventType.opponentThree:
         break;
     }
-    game.events.add(PlayEvent(type: type, playerId: id, period: game.period, timestamp: DateTime.now(), lineupIds: List<String>.from(game.lineupIds)));
+    game.events.add(PlayEvent(
+      type: type,
+      playerId: id,
+      period: game.period,
+      timestamp: DateTime.now(),
+      lineupIds: List<String>.from(game.lineupIds),
+      shotX: shotX,
+      shotY: shotY,
+    ));
     notifyListeners();
   }
 
