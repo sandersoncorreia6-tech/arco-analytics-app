@@ -25,6 +25,7 @@ jobs:
           cache: true
 
       - name: Preparar Android
+        shell: bash
         run: |
           flutter create . --platforms=android --org com.arcoanalytics --project-name arco_analytics
           python3 - <<'PY'
@@ -50,32 +51,35 @@ jobs:
 
           source = candidates[0]
           text = source.read_text()
-          text = re.sub(r'^package\s+[\w.]+', f'package {package}', text, count=1, flags=re.MULTILINE)
+          text = re.sub(
+              r'^package\s+[\w.]+',
+              f'package {package}',
+              text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+
           target_dir = Path("android/app/src/main/kotlin/com/arcoanalytics/app")
           target_dir.mkdir(parents=True, exist_ok=True)
           target = target_dir / source.name
           target.write_text(text)
+
           if source.resolve() != target.resolve():
               source.unlink()
 
           manifest = Path("android/app/src/main/AndroidManifest.xml")
           ms = manifest.read_text()
-          ms = re.sub(r'android:name="[^"]*MainActivity"', 'android:name=".MainActivity"', ms)
+          ms = re.sub(
+              r'android:name="[^"]*MainActivity"',
+              'android:name=".MainActivity"',
+              ms,
+          )
           manifest.write_text(ms)
           PY
-          test -f android/app/src/main/kotlin/com/arcoanalytics/app/MainActivity.kt
-          grep -q '^package com.arcoanalytics.app
-      - name: Gerar APK
-        run: flutter build apk --release
 
-      - name: Salvar APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ARCO-Android-APK-v0.6.2
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
- android/app/src/main/kotlin/com/arcoanalytics/app/MainActivity.kt
-          grep -q 'android:name=".MainActivity"' android/app/src/main/AndroidManifest.xml
+          test -f android/app/src/main/kotlin/com/arcoanalytics/app/MainActivity.kt
+          grep -Fxq "package com.arcoanalytics.app" android/app/src/main/kotlin/com/arcoanalytics/app/MainActivity.kt
+          grep -Fq 'android:name=".MainActivity"' android/app/src/main/AndroidManifest.xml
           flutter pub get
 
       - name: Gerar APK
