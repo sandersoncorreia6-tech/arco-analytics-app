@@ -1,115 +1,109 @@
 # Plano de desenvolvimento — ARCO Analytics
 
-## Objetivo do produto
-
-Transformar o ARCO em uma plataforma de inteligência para comissão técnica de basquete:
+## Objetivo
 
 **Dado → Contexto → Insight → Decisão**
 
-## Fase 0 — Organização da base
-Status: **concluída na branch organize-v0.5**
+## v0.6.0 — MVP integrado
 
-- código-fonte v0.5 na raiz;
-- estrutura Flutter visível;
-- Web/PWA e API separadas;
-- workflows usando a v0.5;
-- documentação de arquitetura;
-- proteção básica de arquivos sensíveis;
-- Application ID Android preservado.
+### Fase 0 — Organização da base
+Status: **concluída**
+- fonte Flutter na raiz;
+- CI/CD;
+- Web/PWA + Android;
+- documentação;
+- Application ID estável.
 
-## Fase 1 — Histórico real do treinador
-Status: **em implementação**
+### Fase 1 — Histórico real do treinador
+Status: **MVP concluído**
+- organizationId/teamId/seasonId;
+- TeamContext;
+- histórico FPB + LBC + ARCO;
+- filtros de liga/categoria/temporada/status;
+- mocks separados;
+- persistência de scouts;
+- vínculo federativo CBB → FPB;
+- aliases oficiais de Tupã;
+- busca histórica pública FPB com cache.
 
-Objetivo:
-- treinador vinculado a organização e equipe por IDs;
-- contexto de temporada;
-- histórico unificado FPB + LBC + scout ARCO;
-- jogos demo separados dos jogos oficiais;
-- sem limite fixo de 3 partidas;
-- deduplicação entre jogo oficial e scout do ARCO;
-- associação futura de vídeo e estatísticas ao mesmo jogo.
+Limite: a leitura pública da FPB/LBC não substitui feed oficial/licenciado.
 
-Implementado:
-- `TeamContext`;
-- `FederativeLink` e hierarquia CBB → FPB;
-- nomes oficiais FPB de Tupã reconhecidos como identidades externas;
-- IDs internos para organização/equipe/temporada;
-- `CoachGameRecord` normalizado;
-- `CoachScheduleService`;
-- metadados de jogo no modelo `Game`;
-- jogos demo marcados explicitamente como `mock`;
-- tela de Jogos reorganizada em temporada, histórico completo e scouts analisados.
+### Fase 2 — Banco, autenticação e acesso
+Status: **arquitetura/MVP concluídos**
+- papéis e permissões;
+- sessão demo separada;
+- senha demo removida do código;
+- gateway Supabase configurável por dart-defines.
 
-Pendente nesta fase:
-- tornar o coletor FPB capaz de percorrer calendário/temporada completos;
-- tornar o coletor LBC mais robusto;
-- filtros por categoria, competição e temporada;
-- persistir jogos do scout após fechar o aplicativo; **concluído localmente**
-- substituir correspondência por nome por mapeamento persistido quando a fonte oficial fornecer IDs;
-- caminho federativo CBB → FPB modelado, com nomes oficiais externos e registro oficial ainda não verificado.
+Pendente de infraestrutura externa:
+- criar/fornecer projeto Supabase (ou backend próprio);
+- schema remoto e políticas RLS;
+- credenciais/URL de produção;
+- sincronização multi-dispositivo ativa.
 
-## Fase 2 — Banco e autenticação reais
-Status: **pendente**
-
-- banco em nuvem;
-- usuários e organizações;
-- treinador/auxiliar/analista/admin;
-- equipes e categorias;
-- temporadas;
-- permissões;
-- recuperação de senha;
-- sincronização multi-dispositivo;
-- remover credenciais demo do código.
-
-## Fase 3 — Scout profissional
-Status: **pendente**
-
-- persistência offline;
-- relógio/período;
-- substituições;
-- lineups automáticos;
+### Fase 3 — Scout profissional
+Status: **MVP concluído**
 - eventos por atleta;
-- tipos de posse;
-- localização do arremesso;
-- sincronização posterior.
+- placar e período;
+- lineup em quadra;
+- undo;
+- métricas ao vivo;
+- persistência local do jogo concluído;
+- funcionamento durante jogo sem depender da internet;
+- quadra tocável e localização de arremessos.
 
-## Fase 4 — Analytics avançado
-Status: **pendente**
+Próxima robustez:
+- recuperação automática de partida ativa após encerramento forçado do app;
+- relógio regressivo oficial configurável;
+- granularidade de tipos de posse.
 
-- eFG%, TS%, ORtg, DRtg e Net Rating por filtros;
+### Fase 4 — Analytics avançado
+Status: **MVP concluído**
+- eFG%, ORtg, DRtg, Net Rating;
+- TOV%, ORB%, FT Rate;
 - Four Factors;
-- On/Off;
-- duplas, trios, quartetos e quintetos;
-- splits;
-- confiança/tamanho da amostra;
-- tendências.
+- lineups;
+- confiança por posses;
+- splits recentes vs temporada;
+- shot chart real;
+- ARCO Impact experimental.
 
-## Fase 5 — Vídeo e adversários
-Status: **pendente**
+### Fase 5 — Vídeo, adversários e Game Plan
+Status: **MVP concluído**
+- adversários;
+- Game Plan;
+- timeline;
+- YouTube;
+- evento → timestamp aproximado;
+- relatório textual da temporada.
 
-- timeline de eventos;
-- evento → timestamp do vídeo;
-- central de adversários;
-- shot chart ofensivo/defensivo;
-- scouting de tendências;
-- Game Plan.
+Próxima robustez:
+- PDF nativo;
+- tagging de vídeo mais avançado;
+- dados ofensivos/defensivos do adversário vindos de mais fontes.
 
-## Fase 6 — ARCO Assistant
-Status: **pendente**
+### Fase 6 — ARCO Assistant
+Status: **MVP concluído**
+- perguntas locais;
+- evidências;
+- confiança da amostra;
+- não inventa métricas inexistentes;
+- usa dados registrados pelo ARCO.
 
-- perguntas em linguagem natural;
-- respostas somente a partir dos dados reais do clube;
-- diagnóstico;
-- comparação;
-- recomendações com contexto;
-- indicação explícita de baixa amostra.
+Próxima robustez:
+- modelo de linguagem conectado ao banco real;
+- RAG por clube;
+- políticas de segurança e auditoria de respostas.
 
-## Regra de desenvolvimento
+## Critério para release
 
-Não adicionar grandes módulos antes de estabilizar a fase anterior. Cada fase deve passar por:
+A release só pode entrar na `main` quando passar:
 
 1. `flutter analyze`;
-2. testes automatizados;
+2. `flutter test`;
 3. build Android;
-4. build Web/PWA;
-5. revisão antes de merge na `main`.
+4. build Web/PWA.
+
+Android deve manter:
+
+`com.arcoanalytics.app`
