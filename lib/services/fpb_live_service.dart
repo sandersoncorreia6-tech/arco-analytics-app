@@ -18,6 +18,9 @@ class FpbLiveResult {
 /// Mobile/desktop: consulta a página pública diretamente.
 /// Web: usa /api/fpb-online para evitar bloqueios CORS do navegador.
 class FpbLiveService {
+  List<FpbGameSnapshot> _seasonCache = const [];
+  DateTime? _seasonCacheAt;
+
   static const onlineUrl = 'https://fpb.com.br/online/';
   static const championshipsUrl = 'https://fpb.com.br/';
   static const _ua = 'ARCO-Analytics/0.5 (+basketball coaching analytics)';
@@ -34,7 +37,7 @@ class FpbLiveService {
     return Uri.parse(onlineUrl);
   }
 
-  Future<FpbLiveResult> fetchOnlineGames() async {
+  Future<FpbLiveResult> fetchOnlineGames({List<String> teamAliases = const []}) async {
     final now = DateTime.now();
     final endpoint = _endpoint();
     String body;
@@ -56,6 +59,25 @@ class FpbLiveService {
       body = ok.map((r) => utf8.decode(r.bodyBytes, allowMalformed: true)).join('\n');
     }
     final games = _parsePublicOnlinePage(body, now);
+    if (!kIsWeb && teamAliases.isNotEmpty) {
+      final stale = _seasonCacheAt == null || now.difference(_seasonCacheAt!).inHours >= 6;
+      if (stale) {
+        try {
+          _seasonCache = await _fetchSeasonArchive(teamAliases, now);
+          _seasonCacheAt = now;
+        } catch (_) {
+          // Mantém o último cache de temporada se a busca histórica falhar.
+        }
+      }
+      final merged = <String, FpbGameSnapshot>{};
+      for (final game in [..._seasonCache, ...games]) {
+        final key = '${game.homeTeam}|${game.awayTeam}|${game.scheduledAt?.toIso8601String() ?? ''}|${game.homeScore ?? ''}|${game.awayScore ?? ''}';
+        merged[key] = game;
+      }
+      games
+        ..clear()
+        ..addAll(merged.values);
+    }
     return FpbLiveResult(
       games: games,
       fetchedAt: now,
@@ -65,6 +87,126 @@ class FpbLiveService {
           : null,
     );
   }
+
+  Future<List<FpbGameSnapshot>> _fetchSeasonArchive(
+    List<String> aliases,
+    DateTime fetchedAt,
+  ) async {
+    final queries = aliases
+        .where((alias) => alias.trim().length >= 4)
+        .map((alias) => alias.trim())
+        .toSet()
+        .take(4)
+        .toList();
+    final searchBodies = <String>[];
+    for (final alias in queries) {
+      final uri = Uri.parse('https://fpb.com.br/').replace(queryParameters: {'s': alias});
+      try {
+        final response = await http.get(
+          uri,
+          headers: const {'User-Agent': _ua, 'Accept': 'text/html'},
+        ).timeout(const Duration(seconds: 8));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          searchBodies.add(utf8.decode(response.bodyBytes, allowMalformed: true));
+        }
+      } catch (_) {}
+    }
+
+    final articleLinks = <String>{};
+    for (final body in searchBodies) {
+      final document = html_parser.parse(body);
+      for (final node in document.querySelectorAll('article a[href], .post a[href], .entry-title a[href]')) {
+        final href = node.attributes['href'];
+        if (href == null) continue;
+        final uri = Uri.tryParse(href);
+        if (uri == null || !uri.host.contains('fpb.com.br')) continue;
+        if (uri.path.contains('/wp-content/') || uri.path.endsWith('.pdf')) continue;
+        articleLinks.add(uri.toString());
+        if (articleLinks.length >= 18) break;
+      }
+      if (articleLinks.length >= 18) break;
+    }
+
+    final bodies = <String>[...searchBodies];
+    for (final url in articleLinks) {
+      try {
+        final response = await http.get(
+          Uri.parse(url),
+          headers: const {'User-Agent': _ua, 'Accept': 'text/html'},
+        ).timeout(const Duration(seconds: 8));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          bodies.add(utf8.decode(response.bodyBytes, allowMalformed: true));
+        }
+      } catch (_) {}
+    }
+
+    final result = <FpbGameSnapshot>[];
+    for (final body in bodies) {
+      result.addAll(_parsePublicOnlinePage(body, fetchedAt));
+      result.addAll(_parseArticleResults(body, fetchedAt));
+    }
+
+    final normalizedAliases = aliases.map((a) => _normalize(a)).toList();
+    final filtered = result.where((game) {
+      final teams = _normalize('${game.homeTeam} ${game.awayTeam}');
+      return normalizedAliases.any((alias) =>
+          alias.isNotEmpty && (teams.contains(alias) || alias.contains(teams)));
+    }).toList();
+
+    final dedup = <String, FpbGameSnapshot>{};
+    for (final game in filtered) {
+      final key = '${_normalize(game.homeTeam)}|${_normalize(game.awayTeam)}|${game.scheduledAt?.year ?? fetchedAt.year}|${game.scheduledAt?.month ?? 0}|${game.scheduledAt?.day ?? 0}|${game.homeScore ?? ''}|${game.awayScore ?? ''}';
+      dedup[key] = game;
+    }
+    return dedup.values.toList();
+  }
+
+  List<FpbGameSnapshot> _parseArticleResults(String html, DateTime fetchedAt) {
+    final document = html_parser.parse(html);
+    final text = document.body?.text ?? '';
+    final clean = _clean(text);
+    final result = <FpbGameSnapshot>[];
+    final pattern = RegExp(
+      r'(Sub[-\s]?\d{2}\s+(?:Feminino|Masculino)|S\d{2}[MF])\s*[:\-–—]*\s*' 
+      r'(.{2,90}?)\s+(\d{1,3})\s*[x×]\s*(\d{1,3})\s+(.{2,90}?)(?=\s+(?:Sub[-\s]?\d{2}|S\d{2}[MF])|$)',
+      caseSensitive: false,
+    );
+    for (final match in pattern.allMatches(clean)) {
+      final home = _team(match.group(2) ?? '');
+      final away = _team(match.group(5) ?? '');
+      if (!_validTeam(home) || !_validTeam(away)) continue;
+      result.add(FpbGameSnapshot(
+        id: _id('$home|$away|${match.group(3)}|${match.group(4)}|${match.group(1)}'),
+        homeTeam: home,
+        awayTeam: away,
+        homeScore: int.tryParse(match.group(3) ?? ''),
+        awayScore: int.tryParse(match.group(4) ?? ''),
+        competition: (match.group(1) ?? '').toUpperCase(),
+        status: 'FINAL',
+        scheduledAt: _dateTime(clean, fetchedAt),
+        fetchedAt: fetchedAt,
+        sourceUrl: championshipsUrl,
+      ));
+    }
+    return result;
+  }
+
+  String _normalize(String input) => _clean(input)
+      .toLowerCase()
+      .replaceAll('á', 'a')
+      .replaceAll('à', 'a')
+      .replaceAll('ã', 'a')
+      .replaceAll('â', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('ê', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('õ', 'o')
+      .replaceAll('ô', 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ç', 'c')
+      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+      .trim();
 
   List<FpbGameSnapshot> _parsePublicOnlinePage(String html, DateTime fetchedAt) {
     final document = html_parser.parse(html);
