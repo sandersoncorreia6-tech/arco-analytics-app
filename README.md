@@ -1,90 +1,108 @@
-# ARCO Analytics — v0.5 Coach Hub
+# ARCO Analytics — v0.6.0 Integrated MVP
 
-Plataforma Flutter/Dart de inteligência para treinadores de basquete.
+Plataforma Flutter/Dart de inteligência para comissão técnica de basquete.
 
 **Dado → Contexto → Insight → Decisão**
 
 ## Fonte oficial
 
-A partir desta organização, o **código-fonte v0.5 na raiz do repositório é a fonte oficial**.
+O código-fonte na raiz do repositório é a fonte oficial. ZIPs e fontes Base64 antigas ficam somente como legado de migração.
 
-As pastas `.source/v0_4/` e os arquivos ZIP antigos são legados de migração e não devem receber novas funcionalidades.
+## O que a v0.6.0 entrega
+
+### Temporada e competições
+- contexto interno por organização, equipe e temporada;
+- histórico unificado FPB + LBC + scouts do ARCO;
+- filtros por liga, categoria, temporada e status;
+- jogos de demonstração separados do histórico oficial;
+- nomes oficiais/variações de Tupã reconhecidos;
+- modelo federativo **CBB → FPB → clube/equipe**;
+- cache e busca histórica pública da FPB em modo best-effort.
+
+### Scout
+- scout ao vivo;
+- período, placar, atleta da ação e lineup em quadra;
+- 2PT, 3PT, lance livre, assistências, rebotes, roubos, tocos, turnovers e faltas;
+- pontos adversários;
+- desfazer último evento;
+- shot chart por toque na quadra com coordenadas reais;
+- persistência local de scouts finalizados;
+- funcionamento do scout sem depender da rede durante a partida.
+
+### Analytics
+- eFG%, ORtg, DRtg, Net Rating;
+- TOV%, ORB% e FT Rate;
+- Four Factors;
+- lineups e confiança por tamanho da amostra;
+- comparação de últimos jogos com temporada;
+- shot chart real quando houver coordenadas;
+- ARCO Impact experimental;
+- motor de insights.
+
+### Decisão
+- central de adversários;
+- Game Plan baseado na amostra registrada;
+- timeline de eventos;
+- vínculo de vídeo do YouTube;
+- abertura aproximada do vídeo no timestamp de cada evento;
+- relatório de temporada copiável;
+- ARCO Assistant local baseado exclusivamente nos dados do app.
+
+### Acesso
+- sessão demo separada;
+- senha demo removida do código;
+- papéis: administrador, treinador, analista e atleta;
+- matriz de permissões;
+- gateway opcional de autenticação Supabase por variáveis de build.
+
+## Integrações externas: limites reais
+
+### CBB / FPB
+O modelo federativo está preparado para CBB e FPB. O ARCO **não inventa número de registro oficial**. Um identificador oficial só deve ser salvo quando obtido de fonte autorizada.
+
+A leitura pública da FPB é uma integração best-effort e pode exigir manutenção se o HTML do site mudar. Para produção comercial em larga escala, o caminho preferido é feed/API oficial ou licenciado.
+
+### LBC
+A LBC permanece como provider separado e cacheável. Não é apresentado como API oficial quando não há feed oficial configurado.
+
+### Supabase
+O código aceita autenticação Supabase, mas o APK padrão é entregue em modo demo enquanto não forem configuradas:
+
+- `ARCO_AUTH_PROVIDER=supabase`
+- `ARCO_SUPABASE_URL`
+- `ARCO_SUPABASE_ANON_KEY`
 
 ## Estrutura
 
-- `lib/` — aplicação Flutter
-- `lib/models/` — modelos
-- `lib/services/` — integrações e regras de serviço
-- `lib/state/` — estado atual do aplicativo
-- `lib/screens/` — telas
-- `lib/widgets/` — componentes reutilizáveis
-- `web/` — PWA/Web
-- `api/` — proxies/integrações para fontes externas
-- `docs/` — documentação técnica e de produto
-- `.github/workflows/` — builds e validações
-
-## Funcionalidades atuais
-
-- login/área do treinador;
-- perfil demo de Adriano Mião;
-- organização demo Tupã / Monstrinho;
-- central FPB + LBC;
-- filtros por competição/categoria/equipe;
-- cache local de jogos externos;
-- vínculo de vídeo do YouTube por partida;
-- scout ao vivo;
-- eFG%, TS%, ORtg, DRtg, Net Rating;
-- TOV%, ORB%, FT Rate;
-- Four Factors;
-- On/Off;
-- Lineup Analytics;
-- ARCO Impact Score experimental;
-- motor de insights;
-- Web/PWA e build Android.
-
-## Situação atual dos dados
-
-A v0.5 ainda utiliza `MockRepository` para parte do elenco, jogos e demonstrações. FPB/LBC já possuem serviços separados, mas a próxima evolução estrutural deve ser um banco persistente por:
-
-**organização → equipe → temporada → categoria → competição → jogo**
-
-Essa migração é prioridade porque o histórico do treinador não deve depender de uma lista mockada.
-
-## Login demo
-
-As credenciais existentes são apenas para demonstração e **não são autenticação de produção**. Antes de comercializar, substituir por autenticação real e remover segredos/credenciais fixas do código.
+- `lib/models/` — entidades e contexto;
+- `lib/services/` — analytics, integrações, auth, persistência e Assistant;
+- `lib/state/` — estado do aplicativo;
+- `lib/screens/` — interface;
+- `lib/widgets/` — componentes;
+- `test/` — testes automatizados;
+- `web/` — PWA/Web;
+- `api/` — proxies externos;
+- `docs/` — documentação;
+- `.github/workflows/` — CI/CD.
 
 ## Builds
 
-### Multiplataforma
+O workflow **ARCO - Build Multiplataforma** valida:
 
-O workflow **ARCO - Build Multiplataforma** valida a fonte da raiz e gera:
+1. `flutter pub get`;
+2. `flutter analyze`;
+3. `flutter test`;
+4. Android APK/AAB;
+5. Web/PWA;
+6. Windows;
+7. iOS unsigned.
 
-- APK Android;
-- AAB Android;
-- Web/PWA;
-- Windows;
-- iOS unsigned.
-
-### APK rápido
-
-O workflow **ARCO - APK Android Manual** gera somente o APK.
-
-O Application ID Android deve permanecer:
+Application ID Android:
 
 `com.arcoanalytics.app`
 
-## Prioridades técnicas
+## Versão
 
-1. banco real e persistência em nuvem;
-2. histórico completo por treinador/equipe/temporada/categoria;
-3. IDs consistentes para times, jogos, competições e temporadas;
-4. autenticação real e permissões;
-5. ingestão robusta de FPB/LBC;
-6. scout e lineups persistentes;
-7. analytics avançado;
-8. vídeo + timeline;
-9. Game Plan;
-10. ARCO Assistant.
+`0.6.0+6`
 
-Veja também `docs/REPOSITORY_STRUCTURE.md` e os demais documentos da pasta `docs/`.
+A v0.6.0 é um **MVP integrado**, não uma declaração de integração oficial/licenciada com CBB/FPB nem de backend cloud ativo.
