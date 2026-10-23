@@ -46,6 +46,9 @@ class TeamSeason {
   int pointsFor = 0;
   int pointsAgainst = 0;
   final List<ShotAttempt> shots = [];
+
+  /// Arremessos dos adversários contra esta equipe (defesa: de onde toma pontos).
+  final List<ShotAttempt> shotsAllowed = [];
   final List<GameBoxScore> gameList = [];
   final Map<String, PlayerSeason> players = {};
 
@@ -99,6 +102,7 @@ class StatsAggregator {
           if (box.score < opp.score) season.losses++;
         }
         season.shots.addAll(g.shots.where((s) => s.team == t));
+        season.shotsAllowed.addAll(g.shots.where((s) => s.team != t));
 
         for (final p in box.players.where((p) => p.played)) {
           final ps = season.players.putIfAbsent(

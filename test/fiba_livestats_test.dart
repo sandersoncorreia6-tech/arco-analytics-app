@@ -40,7 +40,7 @@ void main() {
     expect(layup.player, 'Pedro Almeida');
     expect(layup.y, closeTo(.12, .001));
     expect(layup.x, closeTo(.5, .001));
-    expect(zoneOf(layup), ShotZone.paint);
+    expect(zoneOf(layup), ShotZone.rim);
     // Arremesso na cesta oposta é espelhado para a mesma meia quadra.
     final other = g.shots[2];
     expect(other.y, closeTo(.12, .001));
