@@ -31,6 +31,8 @@ Objetivo:
 
 Implementado:
 - `TeamContext`;
+- `FederativeLink` e hierarquia CBB → FPB;
+- nomes oficiais FPB de Tupã reconhecidos como identidades externas;
 - IDs internos para organização/equipe/temporada;
 - `CoachGameRecord` normalizado;
 - `CoachScheduleService`;
@@ -42,8 +44,9 @@ Pendente nesta fase:
 - tornar o coletor FPB capaz de percorrer calendário/temporada completos;
 - tornar o coletor LBC mais robusto;
 - filtros por categoria, competição e temporada;
-- persistir jogos do scout após fechar o aplicativo;
-- substituir correspondência por nome por mapeamento persistido quando a fonte oficial fornecer IDs.
+- persistir jogos do scout após fechar o aplicativo; **concluído localmente**
+- substituir correspondência por nome por mapeamento persistido quando a fonte oficial fornecer IDs;
+- caminho federativo CBB → FPB modelado, com nomes oficiais externos e registro oficial ainda não verificado.
 
 ## Fase 2 — Banco e autenticação reais
 Status: **pendente**
