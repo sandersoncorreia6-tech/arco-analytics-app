@@ -1,0 +1,88 @@
+name: ARCO - Patch auth cloud
+
+on:
+  push:
+    branches: [ organize-v0.5 ]
+    paths:
+      - ".github/workflows/patch-auth-cloud.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: organize-v0.5
+          fetch-depth: 0
+
+      - name: Integrar autenticação configurável
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('lib/state/app_state.dart')
+          s = p.read_text()
+
+          if "import '../services/auth_gateway.dart';" not in s:
+              s = s.replace(
+                  "import '../services/local_game_store.dart';",
+                  "import '../services/local_game_store.dart';\nimport '../services/auth_gateway.dart';",
+                  1,
+              )
+
+          if "final SupabaseAuthGateway _authGateway" not in s:
+              s = s.replace(
+                  "  final LocalGameStore _localGameStore = LocalGameStore();",
+                  "  final LocalGameStore _localGameStore = LocalGameStore();\n  final SupabaseAuthGateway _authGateway = const SupabaseAuthGateway();",
+                  1,
+              )
+
+          if "String? lastAuthError;" not in s:
+              s = s.replace(
+                  "  bool loggedIn = false;",
+                  "  bool loggedIn = false;\n  String? lastAuthError;\n  String? cloudUserId;",
+                  1,
+              )
+
+          pattern = re.compile(
+              r"  Future<bool> login\(String email, String password\) async \{.*?\n  \}\n\n  Future<void> loginAsAdrianoDemo",
+              re.S,
+          )
+          replacement = '''  Future<bool> login(String email, String password) async {
+    lastAuthError = null;
+    final result = await _authGateway.signIn(email, password);
+    if (!result.success) {
+      lastAuthError = result.error;
+      notifyListeners();
+      return false;
+    }
+    cloudUserId = result.userId;
+    loggedIn = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('coach_logged_in_v1', true);
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> loginAsAdrianoDemo''';
+
+          s, count = pattern.subn(replacement, s, count=1)
+          if count != 1:
+              raise SystemExit('Método login não localizado para substituição segura')
+
+          p.write_text(s)
+          PY
+
+      - name: Commit
+        run: |
+          git config user.name "ARCO Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/state/app_state.dart
+          git commit -m "Remove senha fixa e habilita login cloud configurável"
+          git push origin HEAD:organize-v0.5
