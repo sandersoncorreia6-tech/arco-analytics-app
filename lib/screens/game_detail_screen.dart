@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/game.dart';
+import '../models/play_event.dart';
 import '../services/analytics_service.dart';
 import '../state/app_state.dart';
 import '../widgets/metric_card.dart';
@@ -14,6 +16,7 @@ class GameDetailScreen extends StatelessWidget {
     final state = AppScope.of(context);
     final names = {for (final p in state.players) p.id: p.name};
     final lineups = AnalyticsService.lineupsFromGame(game, names);
+    final videoUrl = state.videoLinks[game.id] ?? '';
     final off = AnalyticsService.offensiveRating(points: game.ourScore, possessions: game.possessions);
     final def = AnalyticsService.defensiveRating(opponentPoints: game.opponentScore, possessions: game.possessions);
     final efg = AnalyticsService.efg(fgm: game.fgm, threePm: game.threePm, fga: game.fga);
@@ -98,6 +101,47 @@ class GameDetailScreen extends StatelessWidget {
               ),
             ),
           ],
+          if (game.events.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            SectionCard(
+              title: 'Timeline do jogo',
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          videoUrl.isEmpty
+                              ? 'Vincule um vídeo para abrir cada evento no momento correspondente.'
+                              : 'Vídeo vinculado: toque em um evento para abrir no tempo aproximado.',
+                          style: const TextStyle(color: Colors.white60, fontSize: 12),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _videoDialog(context, state, videoUrl),
+                        icon: const Icon(Icons.ondemand_video),
+                        label: Text(videoUrl.isEmpty ? 'Vincular' : 'Editar'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...game.events.reversed.take(30).map((event) {
+                    final elapsed = event.timestamp.difference(game.date).inSeconds.clamp(0, 999999);
+                    final player = event.playerId == null ? '' : (names[event.playerId] ?? event.playerId!);
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(radius: 16, child: Text('${event.period}Q', style: const TextStyle(fontSize: 10))),
+                      title: Text(_eventLabel(event.type)),
+                      subtitle: Text([_clock(elapsed), if (player.isNotEmpty) player].join(' • ')),
+                      trailing: videoUrl.isEmpty ? null : const Icon(Icons.play_arrow_rounded),
+                      onTap: videoUrl.isEmpty ? null : () => _openVideoAt(videoUrl, elapsed),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           SectionCard(
             title: 'Four Factors disponíveis',
@@ -113,6 +157,70 @@ class GameDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _videoDialog(BuildContext context, AppState state, String current) async {
+    final controller = TextEditingController(text: current);
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Vídeo do jogo'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Link do YouTube',
+            hintText: 'https://youtube.com/...',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () async {
+              await state.setVideoLink(game.id, controller.text.trim());
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+  }
+
+  Future<void> _openVideoAt(String url, int seconds) async {
+    final parsed = Uri.tryParse(url);
+    if (parsed == null) return;
+    final query = Map<String, String>.from(parsed.queryParameters);
+    query['t'] = '${seconds}s';
+    final timed = parsed.replace(queryParameters: query);
+    await launchUrl(timed, mode: LaunchMode.externalApplication);
+  }
+
+  String _clock(int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String _eventLabel(PlayEventType type) {
+    switch (type) {
+      case PlayEventType.twoMade: return '2 pontos convertido';
+      case PlayEventType.twoMiss: return '2 pontos errado';
+      case PlayEventType.threeMade: return '3 pontos convertido';
+      case PlayEventType.threeMiss: return '3 pontos errado';
+      case PlayEventType.freeThrowMade: return 'Lance livre convertido';
+      case PlayEventType.freeThrowMiss: return 'Lance livre errado';
+      case PlayEventType.assist: return 'Assistência';
+      case PlayEventType.offensiveRebound: return 'Rebote ofensivo';
+      case PlayEventType.defensiveRebound: return 'Rebote defensivo';
+      case PlayEventType.steal: return 'Roubo';
+      case PlayEventType.block: return 'Toco';
+      case PlayEventType.turnover: return 'Turnover';
+      case PlayEventType.foul: return 'Falta';
+      case PlayEventType.opponentOne: return '+1 adversário';
+      case PlayEventType.opponentTwo: return '+2 adversário';
+      case PlayEventType.opponentThree: return '+3 adversário';
+    }
   }
 
   Widget _row(String label, String value) => Padding(
