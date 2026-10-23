@@ -77,10 +77,8 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          import shutil
 
           package = "com.arcoanalytics.app"
-          package_path = Path("android/app/src/main/kotlin/com/arcoanalytics/app")
 
           for name in ("android/app/build.gradle.kts", "android/app/build.gradle"):
               p = Path(name)
@@ -99,12 +97,19 @@ jobs:
 
           source = candidates[0]
           text = source.read_text()
-          text = re.sub(r'^package\s+[\w.]+', f'package {package}', text, count=1, flags=re.MULTILINE)
+          text = re.sub(
+              r'^package\s+[\w.]+',
+              f'package {package}',
+              text,
+              count=1,
+              flags=re.MULTILINE,
+          )
 
           target_dir = Path("android/app/src/main/kotlin/com/arcoanalytics/app")
           target_dir.mkdir(parents=True, exist_ok=True)
           target = target_dir / source.name
           target.write_text(text)
+
           if source.resolve() != target.resolve():
               source.unlink()
 
@@ -122,128 +127,8 @@ jobs:
         shell: bash
         run: |
           test -f android/app/src/main/kotlin/com/arcoanalytics/app/MainActivity.kt
-          grep -q '^package com.arcoanalytics.app
-      - name: Dependências
-        run: flutter pub get
-
-      - name: Gerar APK release
-        run: flutter build apk --release
-
-      - name: Gerar AAB release
-        run: flutter build appbundle --release
-
-      - name: Publicar APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ARCO-Android-APK-v0.6.2
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-
-      - name: Publicar AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: ARCO-Android-AAB-v0.6.2
-          path: build/app/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
-
-  web:
-    name: Web + PWA
-    runs-on: ubuntu-latest
-    needs: quality
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Instalar Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Preservar PWA customizado
-        run: cp -R web /tmp/arco-web
-
-      - name: Criar arquivos Web
-        run: flutter create . --platforms=web --org com.arcoanalytics --project-name arco_analytics
-
-      - name: Restaurar PWA customizado
-        run: |
-          rm -rf web
-          cp -R /tmp/arco-web web
-
-      - name: Dependências
-        run: flutter pub get
-
-      - name: Gerar Web/PWA
-        run: flutter build web --release
-
-      - name: Publicar Web/PWA
-        uses: actions/upload-artifact@v4
-        with:
-          name: ARCO-Web-PWA-v0.6
-          path: build/web
-          if-no-files-found: error
-
-  windows:
-    name: Windows
-    runs-on: windows-latest
-    needs: quality
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Instalar Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Preparar Windows
-        run: |
-          flutter config --enable-windows-desktop
-          flutter create . --platforms=windows --org com.arcoanalytics --project-name arco_analytics
-          flutter pub get
-
-      - name: Gerar Windows
-        run: flutter build windows --release
-
-      - name: Publicar Windows
-        uses: actions/upload-artifact@v4
-        with:
-          name: ARCO-Windows-v0.6
-          path: build/windows/x64/runner/Release/**
-          if-no-files-found: error
-
-  ios:
-    name: iOS unsigned
-    runs-on: macos-latest
-    needs: quality
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Instalar Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Preparar iOS
-        run: |
-          flutter create . --platforms=ios --org com.arcoanalytics --project-name arco_analytics
-          flutter pub get
-
-      - name: Gerar iOS sem assinatura
-        run: flutter build ios --release --no-codesign
-
-      - name: Compactar app
-        run: ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app ARCO-iOS-unsigned.zip
-
-      - name: Publicar iOS
-        uses: actions/upload-artifact@v4
-        with:
-          name: ARCO-iOS-Unsigned-v0.6
-          path: ARCO-iOS-unsigned.zip
-          if-no-files-found: error
- android/app/src/main/kotlin/com/arcoanalytics/app/MainActivity.kt
-          grep -q 'android:name=".MainActivity"' android/app/src/main/AndroidManifest.xml
+          grep -Fxq "package com.arcoanalytics.app" android/app/src/main/kotlin/com/arcoanalytics/app/MainActivity.kt
+          grep -Fq 'android:name=".MainActivity"' android/app/src/main/AndroidManifest.xml
 
       - name: Dependências
         run: flutter pub get
@@ -301,7 +186,7 @@ jobs:
       - name: Publicar Web/PWA
         uses: actions/upload-artifact@v4
         with:
-          name: ARCO-Web-PWA-v0.6
+          name: ARCO-Web-PWA-v0.6.2
           path: build/web
           if-no-files-found: error
 
@@ -330,7 +215,7 @@ jobs:
       - name: Publicar Windows
         uses: actions/upload-artifact@v4
         with:
-          name: ARCO-Windows-v0.6
+          name: ARCO-Windows-v0.6.2
           path: build/windows/x64/runner/Release/**
           if-no-files-found: error
 
@@ -361,6 +246,6 @@ jobs:
       - name: Publicar iOS
         uses: actions/upload-artifact@v4
         with:
-          name: ARCO-iOS-Unsigned-v0.6
+          name: ARCO-iOS-Unsigned-v0.6.2
           path: ARCO-iOS-unsigned.zip
           if-no-files-found: error
