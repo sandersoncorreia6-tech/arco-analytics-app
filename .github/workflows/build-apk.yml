@@ -2,10 +2,6 @@ name: ARCO - APK Android Manual
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ hotfix-v0.6.2-android-activity ]
-    paths:
-      - ".github/workflows/build-apk.yml"
 
 permissions:
   contents: read
