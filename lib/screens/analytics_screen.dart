@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/mock_repository.dart';
+import '../models/shot.dart';
 import '../services/advanced_analytics_service.dart';
 import '../services/analytics_service.dart';
 import '../services/shot_chart_service.dart';
@@ -20,7 +21,7 @@ class AnalyticsScreen extends StatelessWidget {
     final recent = sample.length <= 3 ? sample : ([...sample]..sort((a, b) => b.date.compareTo(a.date))).take(3).toList();
     final recentSummary = AdvancedAnalyticsService.summarize(recent);
     final names = {for (final p in state.players) p.id: p.name};
-    final realShots = latest == null ? const [] : ShotChartService.fromGame(latest);
+    final realShots = latest == null ? <Shot>[] : ShotChartService.fromGame(latest);
     final recorded = latest == null ? const [] : AnalyticsService.lineupsFromGame(latest, names);
     final lineups = recorded.isNotEmpty ? recorded : ([...MockRepository.lineups]..sort((a, b) => b.netRating.compareTo(a.netRating)));
 
