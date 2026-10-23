@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/mock_repository.dart';
+import '../models/lineup.dart';
 import '../services/analytics_service.dart';
 import '../services/arco_assistant_service.dart';
 import '../state/app_state.dart';
@@ -35,7 +36,7 @@ class _ArcoAssistantScreenState extends State<ArcoAssistantScreen> {
     final latest = state.games.isNotEmpty ? state.games.first : null;
     final names = {for (final p in state.players) p.id: p.name};
     final liveLineups = latest == null
-        ? const []
+        ? <Lineup>[]
         : AnalyticsService.lineupsFromGame(latest, names);
     setState(() {
       answer = ArcoAssistantService.answer(
