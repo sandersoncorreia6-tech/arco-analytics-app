@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/play_event.dart';
 import '../services/analytics_service.dart';
+import '../services/shot_chart_service.dart';
 import '../state/app_state.dart';
 import '../widgets/section_card.dart';
+import '../widgets/shot_chart.dart';
 import 'game_detail_screen.dart';
 
 class LiveScoutScreen extends StatelessWidget {
@@ -103,6 +105,11 @@ class LiveScoutScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           SectionCard(
+            title: 'Mapa de arremessos',
+            child: _LiveShotMap(state: state),
+          ),
+          const SizedBox(height: 10),
+          SectionCard(
             title: 'Outras ações',
             child: Wrap(
               spacing: 8,
@@ -185,5 +192,90 @@ class LiveScoutScreen extends StatelessWidget {
 
   Widget _small(AppState state, String label, PlayEventType type) {
     return ActionChip(label: Text(label), onPressed: () => state.addEvent(type));
+  }
+}
+
+
+class _LiveShotMap extends StatefulWidget {
+  final AppState state;
+
+  const _LiveShotMap({required this.state});
+
+  @override
+  State<_LiveShotMap> createState() => _LiveShotMapState();
+}
+
+class _LiveShotMapState extends State<_LiveShotMap> {
+  PlayEventType selected = PlayEventType.twoMade;
+
+  @override
+  Widget build(BuildContext context) {
+    final game = widget.state.activeGame;
+    if (game == null) return const SizedBox.shrink();
+
+    final shots = ShotChartService.fromEvents(game.events);
+    const options = <(String, PlayEventType)>[
+      ('2PT ✓', PlayEventType.twoMade),
+      ('2PT ✕', PlayEventType.twoMiss),
+      ('3PT ✓', PlayEventType.threeMade),
+      ('3PT ✕', PlayEventType.threeMiss),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options
+              .map(
+                (option) => ChoiceChip(
+                  label: Text(option.$1),
+                  selected: selected == option.$2,
+                  onSelected: (_) => setState(() => selected = option.$2),
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Escolha o resultado e toque na posição da quadra. O evento já entra no placar, box score, lineup e shot chart.',
+          style: TextStyle(color: Colors.white60, fontSize: 12),
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final height = width / 1.35;
+            return SizedBox(
+              width: width,
+              height: height,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (details) {
+                  final x = (details.localPosition.dx / width)
+                      .clamp(0.0, 1.0)
+                      .toDouble();
+                  final y = (details.localPosition.dy / height)
+                      .clamp(0.0, 1.0)
+                      .toDouble();
+                  widget.state.addEvent(
+                    selected,
+                    shotX: x,
+                    shotY: y,
+                  );
+                },
+                child: ShotChart(shots: shots),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${shots.length} arremesso(s) com localização registrados',
+          style: const TextStyle(color: Colors.white54, fontSize: 11),
+        ),
+      ],
+    );
   }
 }
