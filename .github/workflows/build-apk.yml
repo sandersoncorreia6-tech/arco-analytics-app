@@ -48,6 +48,6 @@ jobs:
       - name: Salvar APK
         uses: actions/upload-artifact@v4
         with:
-          name: ARCO-Android-APK-v0.5
+          name: ARCO-Android-APK-v0.6
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
